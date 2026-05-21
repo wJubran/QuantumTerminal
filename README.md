@@ -12,7 +12,7 @@
 
 ## 📖 About The Project (نظرة عامة على المشروع)
 
-**Quantum Terminal** is an advanced, fully free, and open-source trading terminal designed to bridge the gap between institutional-grade quantitative analysis and retail day trading. 
+**Quantum Terminal** is an advanced, fully free, and open-source trading terminal designed to bridge the gap between institutional-grade quantitative analysis and retail day trading.
 
 Unlike traditional platforms that rely on lagging indicators (like RSI or MACD), Quantum Terminal processes **real-time tick data** from professional brokerages and overlays complex mathematical probability models directly onto your charts. It acts as a localized display hub, separating heavy mathematical computations from real-time charting to ensure zero-latency trade monitoring.
 
@@ -21,10 +21,10 @@ Unlike traditional platforms that rely on lagging indicators (like RSI or MACD),
 ## 📸 Screenshots
 
 ### Trading Interface — XAUUSD with Volatility Bands & Order Management
-![Trading Interface](screenshots/screenshot_1.jpg)
+![Trading Interface](./screenshots/screenshot_1.jpg)
 
 ### Volatility Cones — Probability-Based Price Envelopes
-![Volatility Cones](screenshots/screenshot_2.jpg)
+![Volatility Cones](./screenshots/screenshot_2.jpg)
 
 ---
 
@@ -35,6 +35,7 @@ Quantum Terminal is built to handle ultra-fast data streams from the most reliab
 - **MetaTrader 5 (MT5):** Direct integration via Python API for Forex, Crypto, and CFD markets.
 - **Rithmic:** High-frequency, sub-millisecond tick processing for CME Futures (NQ, ES).
 - **Tradovate:** Seamless integration for retail futures traders.
+
 *(The platform features a dedicated `focus_tick_loop` ensuring the chart you are actively watching refreshes at maximum FPS without bottlenecking the system).*
 
 ### 2. 📐 Advanced Quantitative Models (النماذج الكمية المتقدمة)
@@ -84,8 +85,8 @@ QuantumTerminal/
 
 ### Prerequisites
 - **Python 3.10** or higher.
-- **MetaTrader 5** (If you intend to use the MT5 data feed).
-- `Node.js` (Optional, if you wish to re-package the Electron shell).
+- **MetaTrader 5** (if you intend to use the MT5 data feed).
+- `Node.js` (optional, if you wish to re-package the Electron shell).
 
 ### Installation
 1. Clone the repository:
@@ -93,26 +94,37 @@ QuantumTerminal/
    git clone https://github.com/wJubran/QuantumTerminal.git
    cd QuantumTerminal/backend
    ```
+
 2. Install Python dependencies:
    ```bash
    pip install fastapi uvicorn websockets watchfiles yfinance MetaTrader5
    ```
-3. Run the Backend Server:
+
+3. Run the backend server:
    ```bash
    python launcher.py
    ```
-4. The terminal will automatically serve the UI on `http://127.0.0.1:8502` and launch your default browser. 
 
-*(To run as a standalone desktop app, you can package the `electron_shell` directory using Electron Forge or Electron Builder).*
+4. The terminal will automatically serve the UI on `http://127.0.0.1:8502` and launch your default browser.
+
+*(To run as a standalone desktop app, you can package the `electron_shell` directory using Electron Forge or Electron Builder.)*
 
 ---
 
 ## 🛠️ Contributing (المساهمة)
-This is a community-driven project! If you are a Python developer, Quant, or React engineer, your pull requests are welcome. 
+
+This is a community-driven project. If you are a Python developer, Quant, or React engineer, your pull requests are welcome.
+
 - **Areas needing help:** Enhancing thread safety for MT5 in `data_server.py`, adding new broker providers (like Interactive Brokers), and rebuilding an open-source React UI.
 
+---
+
 ## ⚖️ Disclaimer
+
 *Quantum Terminal is for educational and analytical purposes only. Trading financial markets carries a high level of risk and may not be suitable for all investors. The mathematical models provided by this software are probabilistic, not predictive.*
 
+---
+
 ## 📄 License
+
 This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for more details.
