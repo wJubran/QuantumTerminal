@@ -21,10 +21,10 @@ Unlike traditional platforms that rely on lagging indicators (like RSI or MACD),
 ## 📸 Screenshots
 
 ### Trading Interface — XAUUSD with Volatility Bands & Order Management
-![Trading Interface](https://raw.githubusercontent.com/wJubran/QuantumTerminal/main/screenshots/screenshot_1.jpg)
+![Trading Interface](https://hcti.io/v1/image/019e4b3f-9d2e-7cf7-a399-ee72c75fa4b4)
 
 ### Volatility Cones — Probability-Based Price Envelopes
-![Volatility Cones](https://raw.githubusercontent.com/wJubran/QuantumTerminal/main/screenshots/screenshot_2.jpg)
+![Volatility Cones](https://hcti.io/v1/image/019e4b3f-9d2e-7cf7-a399-ee72c75fa4b4)
 
 ---
 
