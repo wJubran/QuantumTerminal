@@ -1,0 +1,26 @@
+name: Upload Screenshots
+
+on:
+  workflow_dispatch:
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download and replace screenshots
+        run: |
+          curl -L "https://hcti.io/v1/image/019e4b3f-9d2e-7cf7-a399-ee72c75fa4b4" -o screenshots/screenshot_1.jpg
+          curl -L "https://hcti.io/v1/image/019e4b3f-9d2e-7cf7-a399-ee72c75fa4b4" -o screenshots/screenshot_2.jpg
+          ls -la screenshots/
+      
+      - name: Commit screenshots
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add screenshots/
+          git status
+          git diff --cached --stat
+          git commit -m "Add real screenshots from design" || echo "Nothing to commit"
+          git push
