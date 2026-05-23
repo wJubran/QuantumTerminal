@@ -10,7 +10,7 @@
 
 ---
 
-## 📖 About The Project (نظرة عامة على المشروع)
+## 📖 About The Project
 
 **Quantum Terminal** is an advanced, fully free, and open-source trading terminal designed to bridge the gap between institutional-grade quantitative analysis and retail day trading. 
 
@@ -28,35 +28,35 @@ Unlike traditional platforms that rely on lagging indicators (like RSI or MACD),
 
 ---
 
-## ✨ Core Features (المميزات الأساسية)
+## ✨ Core Features 
 
-### 1. 🌐 Multi-Provider Live Feeds (ربط مباشر مع الأسواق)
+### 1. 🌐 Multi-Provider Live Feeds 
 Quantum Terminal is built to handle ultra-fast data streams from the most reliable data providers in the industry:
 - **MetaTrader 5 (MT5):** Direct integration via Python API for Forex, Crypto, and CFD markets.
 - **Rithmic:** High-frequency, sub-millisecond tick processing for CME Futures (NQ, ES).
 - **Tradovate:** Seamless integration for retail futures traders.
 *(The platform features a dedicated `focus_tick_loop` ensuring the chart you are actively watching refreshes at maximum FPS without bottlenecking the system).*
 
-### 2. 📐 Advanced Quantitative Models (النماذج الكمية المتقدمة)
+### 2. 📐 Advanced Quantitative Models 
 Move beyond simple support and resistance. The platform integrates institutional volatility models to forecast price action probabilities:
 - **Volatility Cones:** Visualizing expected price ranges using Geometric Brownian Motion (**GBM**), Merton Jump Diffusion (**MJD**), and **Bates** models.
 - **Scalp Bands & Micro Volatility:** Real-time bands designed specifically for high-frequency scalpers.
 - **Probability Fields:** Heatmaps mapping the statistical likelihood of price reverting or trending.
 
-### 3. 🌊 Options Flow & Market Maker Positioning (تحليل سيولة الخيارات)
+### 3. 🌊 Options Flow & Market Maker Positioning 
 Understanding where Market Makers are hedging is critical. Quantum Terminal visualizes:
 - **Gamma Exposure (GEX):** Identifies sticky price levels and volatility triggers.
 - **Max Pain:** Highlights the strike price with the most open options contracts.
 - **Option Walls:** Visualizes heavy Call/Put resistance and support barriers.
 
-### 4. 🌍 Macro Regime & Sector Rotation (تحليل الماكرو والسيولة)
+### 4. 🌍 Macro Regime & Sector Rotation
 Using data from `yfinance`, the terminal analyzes global market regimes:
 - Tracks ETF Sector Rotation to see where smart money is flowing.
 - Identifies the current market regime (Risk-On, Risk-Off, Inflationary, etc.) to align your trades with the broader macroeconomic trend.
 
 ---
 
-## 🏗️ Architecture & Repository Structure (هيكلية المشروع)
+## 🏗️ Architecture & Repository Structure 
 
 The project follows a decoupled architecture, ensuring the UI remains buttery smooth while the backend handles heavy lifting.
 
