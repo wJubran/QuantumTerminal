@@ -80,7 +80,7 @@ QuantumTerminal/
 
 ---
 
-## 🚀 Getting Started (طريقة التشغيل)
+## 🚀 Getting Started 
 
 ### Prerequisites
 - **Python 3.10** or higher.
@@ -107,7 +107,7 @@ QuantumTerminal/
 
 ---
 
-## 🛠️ Contributing (المساهمة)
+## 🛠️ Contributing 
 This is a community-driven project! If you are a Python developer, Quant, or React engineer, your pull requests are welcome. 
 - **Areas needing help:** Enhancing thread safety for MT5 in `data_server.py`, adding new broker providers (like Interactive Brokers), and rebuilding an open-source React UI.
 
