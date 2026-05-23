@@ -21,10 +21,10 @@ Unlike traditional platforms that rely on lagging indicators (like RSI or MACD),
 ## 📸 Screenshots
 
 ### Trading Interface — XAUUSD with Volatility Bands & Order Management
-![Trading Interface](screenshots/screenshot_1.jpg)
+![Trading Interface — XAUUSD with Volatility Bands & Order Management](social-preview.svg)
 
 ### Volatility Cones — Probability-Based Price Envelopes
-![Volatility Cones](screenshots/screenshot_2.jpg)
+![Volatility Cones — Probability-Based Price Envelopes](social-preview.svg)
 
 ---
 
