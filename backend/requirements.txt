@@ -7,3 +7,10 @@ watchfiles>=0.21.0
 yfinance>=0.2.30
 MetaTrader5>=5.0.45
 pydantic>=2.5.0
+
+# Optional — only needed for the hosted-TickerAll data/execution provider
+# (set TICKERALL_API_KEY to use it instead of a local MT5 terminal). The
+# provider registry imports it gracefully, so removing this line just
+# disables that provider; the MT5 path is unaffected.
+tickerall>=0.1.0
+

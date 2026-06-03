@@ -51,7 +51,7 @@ from debug_subprocess import debug_popen as _debug_popen
 from typing import Optional, Callable, Awaitable
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 log = logging.getLogger("account_routes")
@@ -280,13 +280,23 @@ def create_account_router(
         return {"trades": mgr.state.recent_trades}
 
     @router.get("/api/account/period-pnl")
-    async def get_period_pnl():
+    async def get_period_pnl(request: Request):
         """
-        Real closed-trade P&L from MT5 deal history.
-        Periods: today, yesterday, this_week, last_week, this_month, last_month.
-        Each period: {pnl, trades, pct}.
+        Real closed-trade P&L by period: today, yesterday, this_week,
+        last_week, this_month, last_month. Each period: {pnl, trades, pct}.
+
+        Sourced from the active hosted provider's closed-trade history when one
+        is connected (the local-MetaTrader5 deal-log path is a no-op off a
+        terminal); falls back to AccountManager.get_period_pnl() otherwise.
         """
         mgr = _get_account_manager()
+        provider = getattr(request.app.state, "provider", None)
+        if (provider is not None and getattr(provider, "connected", False)
+                and hasattr(provider, "get_period_pnl")):
+            equity = mgr.state.current_equity or mgr.state.initial_balance
+            result = await asyncio.to_thread(provider.get_period_pnl, equity)
+            if result is not None:
+                return result
         return await asyncio.to_thread(mgr.get_period_pnl)
 
     # ════════════════════════════════════════════════════════

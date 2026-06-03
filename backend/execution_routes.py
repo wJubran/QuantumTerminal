@@ -123,7 +123,14 @@ def create_execution_router(cfg_manager=None, app=None, broadcast_event=None) ->
         if cfg_manager is None:
             return None
         try:
-            return cfg_manager.get_provider("mt5_default")
+            # Prefer the configured active execution provider; fall back to the
+            # historical "mt5_default" id so existing single-provider setups are
+            # unaffected. (active_execution defaults to mt5_default, so this is
+            # a no-op unless another provider — e.g. TickerAll — is made active.)
+            return (
+                cfg_manager.get_execution_provider()
+                or cfg_manager.get_provider("mt5_default")
+            )
         except Exception:
             return None
 

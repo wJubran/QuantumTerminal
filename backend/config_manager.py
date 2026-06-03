@@ -1153,6 +1153,28 @@ class ConfigManager:
 
     # ── Provider Management ──
 
+    def _apply_env_provider_overrides(self, providers: Dict[str, Any]) -> Dict[str, Any]:
+        """If TICKERALL_API_KEY is set, additively register a hosted-TickerAll
+        provider account and make it the active data + execution source.
+
+        Applied at READ time only — the on-disk user_config is never modified,
+        and the existing MT5 (and Rithmic) provider config is left fully
+        intact. No-op when the env var is unset, so default behaviour is
+        unchanged."""
+        try:
+            from providers.tickerall_provider import tickerall_account_from_env
+        except Exception:
+            return providers
+        acct = tickerall_account_from_env()
+        if not acct:
+            return providers
+        out = copy.deepcopy(providers)
+        accounts = out.setdefault("accounts", {})
+        accounts[acct["id"]] = {**accounts.get(acct["id"], {}), **acct}
+        out["active_data"] = acct["id"]
+        out["active_execution"] = acct["id"]
+        return out
+
     def init_providers(self) -> Dict[str, Any]:
         """
         Instantiate and connect all enabled providers from config.
@@ -1167,6 +1189,7 @@ class ConfigManager:
             copy.deepcopy(DEFAULT_USER_CONFIG.get("providers", {})),
             copy.deepcopy(self._user_config.get("providers", {})),
         )
+        merged = self._apply_env_provider_overrides(merged)
 
         accounts = merged.get("accounts", {})
         self._providers.clear()
@@ -1209,6 +1232,17 @@ class ConfigManager:
             except KeyError as e:
                 log.error(f"Failed to create provider {pid}: {e}")
 
+        # When an env override (e.g. TICKERALL_API_KEY) makes a non-MT5 provider
+        # the active source, also expose it under the "mt5_default" id. The app
+        # has MT5-by-name callers (/api/mt5/status, trade gating, equity/position
+        # sync) that look up "mt5_default" directly; without this they'd see the
+        # dormant local-MT5 provider and report the session as offline. No-op
+        # when no override is active (active_data stays "mt5_default").
+        active_id = merged.get("active_data")
+        if active_id and active_id != "mt5_default" and active_id in self._providers:
+            self._providers["mt5_default"] = self._providers[active_id]
+            log.info(f"Aliased mt5_default -> {active_id} (override provider active)")
+
         return self._providers
 
     def get_provider(self, provider_id: Optional[str] = None) -> Optional[Any]:
@@ -1224,6 +1258,7 @@ class ConfigManager:
             copy.deepcopy(DEFAULT_USER_CONFIG.get("providers", {})),
             copy.deepcopy(self._user_config.get("providers", {})),
         )
+        merged = self._apply_env_provider_overrides(merged)
         active_id = merged.get("active_data", "mt5_default")
         return self._providers.get(active_id)
 
@@ -1233,6 +1268,7 @@ class ConfigManager:
             copy.deepcopy(DEFAULT_USER_CONFIG.get("providers", {})),
             copy.deepcopy(self._user_config.get("providers", {})),
         )
+        merged = self._apply_env_provider_overrides(merged)
         active_id = merged.get("active_execution", "mt5_default")
         return self._providers.get(active_id)
 
