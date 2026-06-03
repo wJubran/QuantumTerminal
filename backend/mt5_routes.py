@@ -37,10 +37,61 @@ v5 — POST /browse-terminal opens a native Windows file-picker so users with
      worker thread, returns the chosen absolute path.
 """
 
+import asyncio
 import logging
 from fastapi import APIRouter, Request, HTTPException
 
 log = logging.getLogger("mt5_routes")
+
+
+def _resolve_account(provider):
+    """Account dict {login, server, balance, equity, currency} for the frontend
+    header. Reads the account_manager's cached snapshot (refreshed every ~5s by
+    the provider sync loop) so this hot, polled path never triggers atlas's
+    ~5s-per-call accounts.get. Falls back to a direct provider query, then a
+    local MetaTrader5 terminal, only before the cache has been populated."""
+    # Fast path: cached snapshot maintained by the provider sync loop (instant).
+    try:
+        from account_manager import get_account_manager
+        s = get_account_manager().get_status_dict()
+        if s.get("balance") is not None and (s.get("login") or s.get("server")):
+            return {
+                "login": s.get("login"),
+                "server": s.get("server"),
+                "balance": s.get("balance"),
+                "equity": s.get("equity"),
+                "currency": s.get("currency"),
+            }
+    except Exception:
+        pass
+    # Fallback (pre-first-sync): query the provider, else a local MT5 terminal.
+    if provider is not None:
+        try:
+            info = provider.get_account_info()
+        except Exception:
+            info = None
+        if info:
+            return {
+                "login": getattr(info, "account_id", None) or getattr(info, "login", None),
+                "server": getattr(info, "server", None),
+                "balance": getattr(info, "balance", None),
+                "equity": getattr(info, "equity", None),
+                "currency": getattr(info, "currency", None),
+            }
+    try:
+        import MetaTrader5 as mt5
+        info = mt5.account_info()
+        if info:
+            return {
+                "login": info.login,
+                "server": info.server,
+                "balance": info.balance,
+                "equity": info.equity,
+                "currency": info.currency,
+            }
+    except Exception:
+        pass
+    return None
 
 
 def create_mt5_router(cfg_manager, app) -> APIRouter:
@@ -249,20 +300,7 @@ def create_mt5_router(cfg_manager, app) -> APIRouter:
 
         # If already connected, return current state
         if provider.connected:
-            account = None
-            try:
-                import MetaTrader5 as mt5
-                info = mt5.account_info()
-                if info:
-                    account = {
-                        "login": info.login,
-                        "server": info.server,
-                        "balance": info.balance,
-                        "equity": info.equity,
-                        "currency": info.currency,
-                    }
-            except Exception:
-                pass
+            account = await asyncio.to_thread(_resolve_account, provider)
             return {"connected": True, "account": account}
 
         # Try to connect
@@ -290,20 +328,7 @@ def create_mt5_router(cfg_manager, app) -> APIRouter:
             pass
 
         # Get account info
-        account = None
-        try:
-            import MetaTrader5 as mt5
-            info = mt5.account_info()
-            if info:
-                account = {
-                    "login": info.login,
-                    "server": info.server,
-                    "balance": info.balance,
-                    "equity": info.equity,
-                    "currency": info.currency,
-                }
-        except Exception:
-            pass
+        account = await asyncio.to_thread(_resolve_account, provider)
 
         log.info("MT5 connected via settings panel")
         return {"connected": True, "account": account}
@@ -329,18 +354,7 @@ def create_mt5_router(cfg_manager, app) -> APIRouter:
         connected = provider.connected if provider else False
         account = None
         if connected:
-            try:
-                import MetaTrader5 as mt5
-                info = mt5.account_info()
-                if info:
-                    account = {
-                        "login": info.login,
-                        "server": info.server,
-                        "balance": info.balance,
-                        "equity": info.equity,
-                    }
-            except Exception:
-                pass
+            account = await asyncio.to_thread(_resolve_account, provider)
         return {"connected": connected, "account": account}
 
     return router

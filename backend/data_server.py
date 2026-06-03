@@ -716,6 +716,15 @@ async def lifespan(app: FastAPI):
     ]
     if provider and provider.connected:
         tasks.append(asyncio.create_task(mt5_reconnect_loop(app.state, server_config)))
+        # Keep account equity/balance synced from the active provider (e.g. hosted
+        # TickerAll). The built-in equity sync is hardcoded to the MetaTrader5
+        # package and is a no-op off a local terminal; this fills that gap.
+        try:
+            from account_sync import account_sync_loop
+            tasks.append(asyncio.create_task(account_sync_loop(app.state)))
+            log.info("Provider account-sync task started")
+        except Exception as e:
+            log.warning(f"Provider account-sync task not started: {e}")
 
     # ── Consumer periodic sync (Rule C1: display-only refresh, 5 min default) ──
     # Polls the VPS at a configurable interval and broadcasts data_sync_complete

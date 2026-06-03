@@ -406,6 +406,60 @@ class AccountManager:
             log.warning(f"MT5 sync failed: {e}")
             return False
 
+    def sync_from_provider(self, provider) -> bool:
+        """Sync equity/balance from a BaseProvider (e.g. hosted TickerAll) rather
+        than the local MetaTrader5 terminal. Used when an env-override provider is
+        the active source and the MT5 package is unavailable. Additive — the MT5
+        path keeps using sync_from_mt5()."""
+        try:
+            info = provider.get_account_info() if provider else None
+            if not info:
+                return False
+            equity = float(getattr(info, "equity", 0.0) or 0.0)
+            balance = float(getattr(info, "balance", 0.0) or 0.0)
+            if equity <= 0.0:
+                equity = balance
+            if balance <= 0.0:
+                balance = equity
+            if equity <= 0.0 and balance <= 0.0:
+                return False
+            # First sync: anchor the day/week/peak baselines to the real account
+            # (clears the placeholder $100k default so drawdown math is sane).
+            if not self.state.last_mt5_sync:
+                self.state.daily_start_equity = equity
+                self.state.weekly_start_equity = equity
+                self.state.peak_equity = max(equity, balance)
+            self.state.initial_balance = balance
+            self.state.current_equity = equity
+            self.state.peak_equity = max(self.state.peak_equity, equity)
+            self.state.last_mt5_sync = datetime.now().isoformat()
+            self.state.daily_pnl = equity - self.state.daily_start_equity
+            self.state.weekly_pnl = equity - self.state.weekly_start_equity
+            # Snapshot the broker fields the dashboard + MT5 status header read
+            # (login / server / balance / currency / margin / free_margin) + the
+            # open-position count, so those hot, polled endpoints are served from
+            # this cache instead of a ~5s-per-call accounts.get on every poll.
+            try:
+                _positions = provider.get_positions() or []
+            except Exception:
+                _positions = []
+            self._broker = {
+                "login": (str(getattr(info, "account_id", "") or "") or None),
+                "server": getattr(info, "server", None),
+                "balance": balance,
+                "currency": getattr(info, "currency", "USD") or "USD",
+                "margin": float(getattr(info, "margin", 0.0) or 0.0),
+                "free_margin": float(getattr(info, "free_margin", getattr(info, "margin_free", 0.0)) or 0.0),
+                "open_positions": len(_positions),
+            }
+            self._check_circuit_breakers()
+            self._save_state()
+            log.info(f"Provider account sync: equity=${equity:,.2f}, balance=${balance:,.2f}")
+            return True
+        except Exception as e:
+            log.warning(f"Provider account sync failed: {e}")
+            return False
+
     def sync_positions_from_mt5(self) -> List[Dict]:
         """Read open positions from MT5."""
         try:
@@ -630,7 +684,13 @@ class AccountManager:
         return {
             "trading_allowed": self.is_trading_allowed,
             "halt_reason": self.halt_reason,
+            "login": getattr(self, "_broker", {}).get("login"),
+            "server": getattr(self, "_broker", {}).get("server"),
             "equity": round(st.current_equity, 2),
+            "balance": round(getattr(self, "_broker", {}).get("balance", st.initial_balance), 2),
+            "currency": getattr(self, "_broker", {}).get("currency", "USD"),
+            "margin": round(getattr(self, "_broker", {}).get("margin", 0.0), 2),
+            "free_margin": round(getattr(self, "_broker", {}).get("free_margin", 0.0), 2),
             "initial_balance": round(st.initial_balance, 2),
             "peak_equity": round(st.peak_equity, 2),
             "daily_pnl": round(st.daily_pnl, 2),
@@ -646,7 +706,7 @@ class AccountManager:
             "trailing_drawdown_halt": st.trailing_drawdown_halt,
             "daily_trades": st.daily_trades,
             "weekly_trades": st.weekly_trades,
-            "open_positions": len(self.sync_positions_from_mt5()),
+            "open_positions": getattr(self, "_broker", {}).get("open_positions", len(self.sync_positions_from_mt5())),
             "max_positions": s.max_open_positions,
             "last_mt5_sync": st.last_mt5_sync,
             "last_updated": st.last_updated,

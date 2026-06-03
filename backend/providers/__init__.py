@@ -24,6 +24,14 @@ except ImportError:
     RithmicProvider = None
     RITHMIC_AVAILABLE = False
 
+# ── TickerAll provider (graceful if the `tickerall` package isn't installed) ──
+try:
+    from providers.tickerall_provider import TickerAllProvider
+    TICKERALL_AVAILABLE = True
+except ImportError:
+    TickerAllProvider = None
+    TICKERALL_AVAILABLE = False
+
 # ── Provider type → class mapping ──
 # Key = the "type" field in account config
 # Value = class that implements BaseProvider
@@ -34,6 +42,10 @@ PROVIDER_REGISTRY = {
 # Register Rithmic only if async_rithmic is installed
 if RITHMIC_AVAILABLE:
     PROVIDER_REGISTRY["rithmic"] = RithmicProvider
+
+# Register TickerAll only if the `tickerall` package is installed
+if TICKERALL_AVAILABLE:
+    PROVIDER_REGISTRY["tickerall"] = TickerAllProvider
 
 
 def create_provider(account_config: dict) -> BaseProvider:
