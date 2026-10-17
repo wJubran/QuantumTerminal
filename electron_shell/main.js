@@ -130,30 +130,34 @@ function findBackendCommand() {
     });
   }
 
-  // Dev: run launcher.py via v2's own venv. Independent of v1 — no fallbacks.
+  // Dev: run launcher.py from this repository (electron_shell/ sits next to
+  //   backend/), or from the legacy `source code/` layout. Prefer a project
+  //   venv (.venv / venv / venv_consumer — Windows or POSIX layout), then
+  //   the Python on PATH for the "cloned it, no venv yet" first run.
   if (isDev) {
-    const v2Venv     = path.join(projectRoot, "source code", "venv_consumer", "Scripts", "python.exe");
-    const launcherPy = path.join(projectRoot, "source code", "backend", "launcher.py");
-    if (fs.existsSync(v2Venv) && fs.existsSync(launcherPy)) {
+    const launcherPy = [
+      path.join(projectRoot, "backend", "launcher.py"),
+      path.join(projectRoot, "source code", "backend", "launcher.py"),
+    ].find((p) => fs.existsSync(p));
+    if (launcherPy) {
+      const repoRoot = path.dirname(path.dirname(launcherPy));
+      for (const venv of [".venv", "venv", "venv_consumer"]) {
+        for (const py of [path.join(repoRoot, venv, "Scripts", "python.exe"),
+                          path.join(repoRoot, venv, "bin", "python")]) {
+          candidates.push({ cmd: py, args: [launcherPy], cwd: path.dirname(launcherPy),
+                            label: `dev: ${venv} + launcher.py` });
+        }
+      }
       candidates.push({
-        cmd: v2Venv, args: [launcherPy],
-        cwd: path.dirname(launcherPy),
-        label: "dev: v2 venv + launcher.py",
-      });
-    }
-    // System python only if v2 venv isn't built yet — useful for the
-    // "I cloned the repo, haven't run the venv setup" first-run case.
-    if (fs.existsSync(launcherPy)) {
-      candidates.push({
-        cmd: "python", args: [launcherPy],
-        cwd: path.dirname(launcherPy),
+        cmd: process.platform === "win32" ? "python" : "python3",
+        args: [launcherPy], cwd: path.dirname(launcherPy), onPath: true,
         label: "dev: system python (no venv detected, may fail without deps installed)",
       });
     }
   }
 
   for (const c of candidates) {
-    if (c.cmd === "python" || (c.cmd && fs.existsSync(c.cmd))) {
+    if (c.onPath || (c.cmd && fs.existsSync(c.cmd))) {
       console.log(`[electron] backend: ${c.label}`);
       return c;
     }
@@ -167,7 +171,7 @@ function startBackend() {
   if (!target) {
     dialog.showErrorBox(
       "Backend not found",
-      "Could not locate the Python backend. Expected a PyInstaller-built data_server.exe inside extraResources/backend/, or a dev venv_consumer with data_server.py."
+      "Could not locate the Python backend. Expected a PyInstaller-built data_server.exe inside extraResources/backend/, or backend/launcher.py next to electron_shell/ in a source checkout."
     );
     app.exit(1);
     return;
@@ -185,6 +189,8 @@ function startBackend() {
       MK_PORT: String(BACKEND_PORT),       // launcher.py reads this
       MK_NO_BROWSER: "1",                  // skip auto-launch of system browser
       MK_APP_DIR_NAME: "QuantumTerminal-v2",      // isolate AppData from v1 (auth, cache, account state)
+      // `npm run start:sim` / `electron . --sim`: simulated market + paper trading
+      ...(process.argv.includes("--sim") ? { MK_PROVIDER: "sim" } : {}),
     },
   });
 

@@ -49,3 +49,6 @@ data_library/
 
 # === Test Caches ===
 .pytest_cache/
+
+# === Test artifacts ===
+backend/data_manager/_test_library/
