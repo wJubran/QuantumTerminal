@@ -24,6 +24,14 @@ except ImportError:
     RithmicProvider = None
     RITHMIC_AVAILABLE = False
 
+# ── Simulated market + paper trading (needs numpy) ──
+try:
+    from providers.sim_provider import SimProvider
+    SIM_AVAILABLE = True
+except ImportError:
+    SimProvider = None
+    SIM_AVAILABLE = False
+
 # ── Provider type → class mapping ──
 # Key = the "type" field in account config
 # Value = class that implements BaseProvider
@@ -34,6 +42,9 @@ PROVIDER_REGISTRY = {
 # Register Rithmic only if async_rithmic is installed
 if RITHMIC_AVAILABLE:
     PROVIDER_REGISTRY["rithmic"] = RithmicProvider
+
+if SIM_AVAILABLE:
+    PROVIDER_REGISTRY["sim"] = SimProvider
 
 
 def create_provider(account_config: dict) -> BaseProvider:

@@ -231,7 +231,33 @@ def mount_frontend(app, frontend_dir: Path) -> bool:
     return True
 
 
+def _parse_args(argv=None):
+    """CLI flags are thin wrappers over the MK_* env vars, so the Electron
+    shell (env) and a terminal user (flags) configure the same knobs."""
+    import argparse
+    parser = argparse.ArgumentParser(description="Quantum Terminal launcher")
+    parser.add_argument("--port", type=int, help="HTTP port (env MK_PORT, default 8502)")
+    parser.add_argument("--no-browser", action="store_true",
+                        help="Don't open the system browser (env MK_NO_BROWSER=1)")
+    parser.add_argument("--sim", action="store_true",
+                        help="Use the built-in simulated market feed with paper "
+                             "trading - no broker needed (env MK_PROVIDER=sim)")
+    # parse_known_args: tolerate extra args injected by packagers / shells.
+    args, _unknown = parser.parse_known_args(argv)
+    return args
+
+
 def main():
+    global PORT
+    args = _parse_args()
+    if args.port:
+        PORT = args.port
+        os.environ["MK_PORT"] = str(PORT)
+    if args.no_browser:
+        os.environ["MK_NO_BROWSER"] = "1"
+    if args.sim:
+        os.environ["MK_PROVIDER"] = "sim"
+
     # v2 Phase D: persistent rotating log file under %APPDATA%\<APP_DIR>\logs\.
     #   Console behavior unchanged; file logging is additive.
     try:
@@ -279,6 +305,8 @@ def main():
                 pass  # Read-only _internal — config found via sys.path instead
 
     print(f"  Server : http://127.0.0.1:{PORT}")
+    if os.environ.get("MK_PROVIDER", "").strip().lower() == "sim":
+        print("  Feed   : SIMULATED market data + paper trading (not real prices)")
     print(f"  Press Ctrl+C to stop")
     print("=" * 50)
     print()
