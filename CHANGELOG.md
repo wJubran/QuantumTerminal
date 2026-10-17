@@ -8,9 +8,27 @@ Notable changes to Quantum Terminal. The format follows
 
 ### Added
 
+- **Probability bands computed by the terminal** (`BANDS` on a chart, key **B**):
+  - GBM, MJD and Bates bands that restart at every trading day's open, so they follow the price;
+  - their width comes from the last 60 trading days, and the tails keep the cones' long-run shape;
+  - each band has a 20-day forward fan;
+  - the Pulse Room ranks the watchlist against them too.
+- **The REPLAY page works without a data server.** The terminal writes the past weekly and monthly
+  cones, eight quarterly anchors, and every day's band forecast for it to play back.
 - The main README explains the project in Arabic as well, and both READMEs have detailed requirements
   and a step-by-step guide: installing Python, a virtual environment, running on the simulator or with
   MetaTrader 5, updating, the desktop app, and fixes for common problems.
+
+### Changed
+
+- Jumps are recognised relative to the volatility of their time, not one threshold for the whole year.
+  After a lasting rise in volatility, the new regime's ordinary days are no longer treated as "jumps".
+  This affects the MJD and Bates cones.
+
+### Fixed
+
+- The README said the Money Flow page fetched its data live; it reads analysis files like the other
+  panels.
 
 ## [1.1.0] — 2026-10-17
 

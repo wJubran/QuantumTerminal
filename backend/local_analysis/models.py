@@ -1,4 +1,4 @@
-# version: v1
+# version: v2
 """
 Return-distribution models behind the locally computed volatility cones.
 
@@ -29,13 +29,16 @@ Z_LEVELS = np.array([-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0])
 
 MIN_RETURNS = 40        # fewer daily returns than this → no estimate
 LOOKBACK = 250          # daily returns used, about one trading year
-JUMP_SIGMAS = 3.0       # |return − median| beyond this many robust sigmas is a jump
+JUMP_SIGMAS = 3.0       # |return − median| beyond this many running sigmas is a jump
+JUMP_SEED = 20          # returns that seed the running sigma of the jump test
 VAR_HALF_LIFE = 20.0    # trading days for variance to revert halfway to its mean
 EWMA_LAMBDA = 0.94      # RiskMetrics decay for the current variance
 RV_BLOCK = 20           # trading days per realized-variance sample (vol of vol)
 RHO_BLOCK = 5           # trading days per block for the return/variance correlation
 BATES_PATHS = 25_000
 BATES_MAX_STEP = 0.25   # longest Monte Carlo step, in trading days
+REPLAY_PATHS = 10_000   # Bates paths for the Replay page's archived cones and bands
+REPLAY_STEP = 0.5       # and their longest step
 
 
 def norm_cdf(x) -> np.ndarray:
@@ -70,12 +73,38 @@ class Params:
         return {k: (float(f"{v:.6g}") if isinstance(v, float) else v) for k, v in asdict(self).items()}
 
 
+def jump_mask(r: np.ndarray) -> np.ndarray:
+    """True for the returns that count as jumps: further than JUMP_SIGMAS
+    running sigmas from the median.
+
+    The running sigma is an EWMA (RiskMetrics λ) of the earlier squared
+    deviations, seeded with the robust sigma (1.4826 × MAD) of the first
+    JUMP_SEED returns. Every return updates it, capped at the threshold. So a
+    lasting rise in volatility is absorbed within days instead of turning the
+    whole new regime into "jumps", while an isolated outlier barely moves it.
+    """
+    r = np.asarray(r, dtype=float)
+    dev = r - float(np.median(r))
+    s0 = 1.4826 * float(np.median(np.abs(dev[:JUMP_SEED])))
+    if s0 <= 0:
+        s0 = float(np.std(dev))
+    mask = np.zeros(r.size, dtype=bool)
+    if s0 <= 0:
+        return mask
+    v = s0 * s0
+    for t, d in enumerate(dev):
+        lim2 = JUMP_SIGMAS * JUMP_SIGMAS * v
+        mask[t] = d * d > lim2
+        v = EWMA_LAMBDA * v + (1.0 - EWMA_LAMBDA) * min(d * d, lim2)
+    return mask
+
+
 def estimate(closes: Sequence[float]) -> Optional[Params]:
     """Estimate every model's parameters from the closes before an anchor.
 
-    Jumps are returns further than JUMP_SIGMAS robust sigmas (1.4826 × MAD)
-    from the median; at least two are needed to estimate a jump size, else
-    the jump part is off. The diffusive volatility comes from the remaining
+    Jumps are the returns jump_mask() flags, relative to the volatility of
+    their time; at least two are needed to estimate a jump size, else the
+    jump part is off. The diffusive volatility comes from the remaining
     returns. Bates: v0 is their EWMA variance, theta their plain variance,
     kappa a fixed 20-day half-life, xi matches the dispersion of 20-day
     realized variances (Var[v] = theta·xi²/2kappa for a CIR variance), and rho
@@ -88,13 +117,9 @@ def estimate(closes: Sequence[float]) -> Optional[Params]:
     if r.size < MIN_RETURNS:
         return None
 
-    med = float(np.median(r))
-    robust = 1.4826 * float(np.median(np.abs(r - med)))
-    if robust <= 0:
-        robust = float(np.std(r))
-    if robust <= 0:
+    if float(np.std(r)) <= 0:
         return None                     # a flat price series has no spread to model
-    is_jump = np.abs(r - med) > JUMP_SIGMAS * robust
+    is_jump = jump_mask(r)
     jumps, diffusive = r[is_jump], r[~is_jump]
     sigma = float(np.std(diffusive, ddof=1))
     if not np.isfinite(sigma) or sigma <= 0:
@@ -142,37 +167,45 @@ def mjd_quantiles(p: Params, tau) -> np.ndarray:
     After tau days the log return is σ·W(tau) plus N ~ Poisson(λ·tau) normal
     jumps, minus λ·tau·μ_J so its mean is zero:
         F(x) = Σ_n Pois(n; λτ) · Φ((x + λτμ_J − nμ_J) / √(σ²τ + nσ_J²))
+    All horizons are solved together; Poisson terms beyond each horizon's own
+    10-sigma cut-off are dropped.
     """
     tau = np.asarray(tau, dtype=float)
     if p.lam <= 0:
         return gbm_quantiles(p, tau)
     out = np.zeros((tau.size, Z_LEVELS.size))
-    for i, t in enumerate(tau):
-        if t <= 0:
-            continue
-        m = p.lam * t
-        n = np.arange(int(m + 10.0 * math.sqrt(m) + 10.0) + 1)
-        w = np.exp(-m + n * math.log(m) - np.array([math.lgamma(k + 1.0) for k in n]))
-        w /= w.sum()
-        mean = (n - m) * p.mu_j
-        sd = np.sqrt(p.sigma ** 2 * t + n * p.sigma_j ** 2)
-        lo = np.full(Z_LEVELS.size, mean.min() - 12.0 * sd.max())
-        hi = np.full(Z_LEVELS.size, mean.max() + 12.0 * sd.max())
-        for _ in range(80):
-            mid = 0.5 * (lo + hi)
-            cdf = (w[None, :] * norm_cdf((mid[:, None] - mean[None, :]) / sd[None, :])).sum(axis=1)
-            below = cdf < PROBS
-            lo, hi = np.where(below, mid, lo), np.where(below, hi, mid)
-        out[i] = 0.5 * (lo + hi)
+    live = tau > 0
+    if not live.any():
+        return out
+    t = tau[live]
+    m = p.lam * t                                                   # (T,)
+    n = np.arange(int(m.max() + 10.0 * math.sqrt(m.max()) + 10.0) + 1, dtype=float)
+    lgam = np.array([math.lgamma(k + 1.0) for k in n])
+    w = np.exp(-m[:, None] + n[None, :] * np.log(m)[:, None] - lgam[None, :])   # (T, N)
+    w[n[None, :] > (m + 10.0 * np.sqrt(m) + 10.0)[:, None]] = 0.0
+    w /= w.sum(axis=1, keepdims=True)
+    mean = (n[None, :] - m[:, None]) * p.mu_j                                  # (T, N)
+    sd = np.sqrt(p.sigma ** 2 * t[:, None] + n[None, :] * p.sigma_j ** 2)      # (T, N)
+    lo = np.repeat((mean.min(axis=1) - 12.0 * sd.max(axis=1))[:, None], Z_LEVELS.size, axis=1)
+    hi = np.repeat((mean.max(axis=1) + 12.0 * sd.max(axis=1))[:, None], Z_LEVELS.size, axis=1)
+    for _ in range(80):
+        mid = 0.5 * (lo + hi)                                                  # (T, 7)
+        z = (mid[:, :, None] - mean[:, None, :]) / sd[:, None, :]
+        cdf = (w[:, None, :] * norm_cdf(z)).sum(axis=2)
+        below = cdf < PROBS[None, :]
+        lo, hi = np.where(below, mid, lo), np.where(below, hi, mid)
+    out[live] = 0.5 * (lo + hi)
     return out
 
 
-def bates_quantiles(p: Params, tau, seed: int, n_paths: int = BATES_PATHS) -> np.ndarray:
+def bates_quantiles(p: Params, tau, seed: int, n_paths: int = BATES_PATHS,
+                    max_step: float = BATES_MAX_STEP) -> np.ndarray:
     """Monte Carlo quantiles of the Bates model (Heston variance + Merton jumps).
 
-    Full-truncation Euler steps of at most BATES_MAX_STEP trading days. The
+    Full-truncation Euler steps of at most `max_step` trading days. The
     same paths are read at every tau, so the cone is smooth in time; `seed`
-    makes the result reproducible.
+    makes the result reproducible. The Replay page's archives use fewer
+    paths and longer steps than the live overlays (REPLAY_PATHS, REPLAY_STEP).
     """
     tau = np.asarray(tau, dtype=float)
     rng = np.random.default_rng(seed)
@@ -183,7 +216,7 @@ def bates_quantiles(p: Params, tau, seed: int, n_paths: int = BATES_PATHS) -> np
     done = 0.0
     for i, t in enumerate(tau):
         if t > done:
-            k = max(1, math.ceil((t - done) / BATES_MAX_STEP - 1e-9))
+            k = max(1, math.ceil((t - done) / max_step - 1e-9))
             h = (t - done) / k
             for _ in range(k):
                 z1 = rng.standard_normal(n_paths)
@@ -203,11 +236,15 @@ def bates_quantiles(p: Params, tau, seed: int, n_paths: int = BATES_PATHS) -> np
     return out
 
 
-def quantiles(model: str, p: Params, tau, seed: int = 0) -> np.ndarray:
+def quantiles(model: str, p: Params, tau, seed: int = 0, archive: bool = False) -> np.ndarray:
+    """Log-return quantiles of `model`. archive=True: the cheaper Monte Carlo
+    settings used for the Replay page's files."""
     if model == "gbm":
         return gbm_quantiles(p, tau)
     if model == "mjd":
         return mjd_quantiles(p, tau)
     if model == "bates":
+        if archive:
+            return bates_quantiles(p, tau, seed, n_paths=REPLAY_PATHS, max_step=REPLAY_STEP)
         return bates_quantiles(p, tau, seed)
     raise ValueError(f"unknown model {model!r}")

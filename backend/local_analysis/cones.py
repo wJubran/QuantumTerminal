@@ -1,7 +1,9 @@
-# version: v1
+# version: v2
 """
 Volatility cones from daily bars, in the shape the chart's CONES, BATES and
-QUARTERLY overlays read ({TICKER}_cones.json / {TICKER}_quarterly_cones.json).
+QUARTERLY overlays read ({TICKER}_cones.json / {TICKER}_quarterly_cones.json),
+plus the past weekly / monthly cones the Replay page plays back
+({TICKER}_historical_cones.json).
 
 Every horizon the chart offers gets cones anchored at the open of the first
 daily bar of its period, fanning out to the end of that period:
@@ -9,7 +11,8 @@ daily bar of its period, fanning out to the end of that period:
     DAILY      today and the two previous trading days     gbm/mjd/bates_daily_curr|prev|prev_2
     WEEKLY     this week and last week                     gbm/mjd/bates_curr|prev
     MONTHLY    this month and the two before               gbm/mjd/bates_month_curr|prev|prev_2
-    QUARTERLY  this quarter and the three before           gbm/mjd_quarter_curr|prev1|prev2|prev3
+    QUARTERLY  this quarter and the seven before           gbm/mjd_quarter_curr|prev1 … prev7
+               (the chart shows four; the Replay page all eight)
 
 Model parameters come only from the bars *before* the anchor, so each cone is
 the forecast that could have been made when its period opened; the earlier
@@ -39,8 +42,10 @@ FAMILIES = {
     "daily":     (("daily_curr", "daily_prev", "daily_prev_2"), 24, ("gbm", "mjd", "bates")),
     "weekly":    (("curr", "prev"), 6, ("gbm", "mjd", "bates")),
     "monthly":   (("month_curr", "month_prev", "month_prev_2"), 2, ("gbm", "mjd", "bates")),
-    "quarterly": (("quarter_curr", "quarter_prev1", "quarter_prev2", "quarter_prev3"), 1, ("gbm", "mjd")),
+    "quarterly": (("quarter_curr",) + tuple(f"quarter_prev{i}" for i in range(1, 8)), 1, ("gbm", "mjd")),
 }
+HISTORY_FAMILIES = ("weekly", "monthly")    # replayed by the Replay page
+HISTORY_DAYS = 550                          # ≈ 18 months of anchors, on any trading calendar
 
 
 @dataclass(frozen=True)
@@ -147,9 +152,44 @@ def _seed(ticker: str, key: str, anchor: datetime) -> int:
     return int.from_bytes(digest[:8], "big")
 
 
+def _cone(ticker: str, bars: List[DailyBar], closes: np.ndarray, idx: int, family: str,
+          weekdays: frozenset, archive: bool = False) -> Optional[Dict[str, dict]]:
+    """Every model's cone anchored at bars[idx] → {model: entry}, or None
+    without enough history before the anchor. archive=True uses the Replay
+    page's cheaper Monte Carlo settings."""
+    _, steps, family_models = FAMILIES[family]
+    params = models.estimate(closes[:idx])          # strictly before the anchor bar
+    if params is None:
+        return None
+    anchor = bars[idx]
+    start = anchor.time.date()
+    horizon = trading_days(start, _period_end(start, family), weekdays)
+    times, tau = time_grid(anchor.time, horizon, steps, weekdays)
+    dates = [t.strftime("%Y-%m-%d %H:%M") for t in times]
+    places = _decimals(anchor.open)
+    out = {}
+    for model in family_models:
+        q = models.quantiles(model, params, tau, seed=_seed(ticker, f"{model}_{family}", anchor.time),
+                             archive=archive)
+        prices = anchor.open * np.exp(q)
+        entry = {"dates": dates}
+        entry.update({name: [round(float(v), places) for v in prices[:, j]]
+                      for j, name in enumerate(SERIES)})
+        entry.update({
+            "model": model,
+            "anchor": {"time": anchor.time.strftime("%Y-%m-%d %H:%M"),
+                       "price": round(anchor.open, places)},
+            "horizon_days": horizon,
+            "params": params.as_dict(),
+        })
+        out[model] = entry
+    return out
+
+
 def build(ticker: str, bars_in: Sequence) -> Optional[dict]:
     """All cones for one ticker → {"cones": {...}, "quarterly": {...},
-    "weekdays": [...], "last_bar": datetime}, or None without enough history."""
+    "quarterly_anchors": [...], "weekdays": [...], "last_bar": datetime},
+    or None without enough history."""
     bars = normalize(bars_in)
     if len(bars) < models.MIN_RETURNS + 2:
         return None
@@ -157,33 +197,55 @@ def build(ticker: str, bars_in: Sequence) -> Optional[dict]:
     closes = np.array([b.close for b in bars])
     cones: Dict[str, dict] = {}
     quarterly: Dict[str, dict] = {}
+    quarterly_anchors: List[dict] = []
 
-    for family, (suffixes, steps, family_models) in FAMILIES.items():
+    for family, (suffixes, _, _) in FAMILIES.items():
         for suffix, idx in zip(suffixes, reversed(period_starts(bars, family))):
-            params = models.estimate(closes[:idx])          # strictly before the anchor bar
-            if params is None:
+            cone = _cone(ticker, bars, closes, idx, family, weekdays)
+            if cone is None:
                 continue
-            anchor = bars[idx]
-            start = anchor.time.date()
-            horizon = trading_days(start, _period_end(start, family), weekdays)
-            times, tau = time_grid(anchor.time, horizon, steps, weekdays)
-            dates = [t.strftime("%Y-%m-%d %H:%M") for t in times]
-            places = _decimals(anchor.open)
-            for model in family_models:
-                key = f"{model}_{suffix}"
-                q = models.quantiles(model, params, tau, seed=_seed(ticker, key, anchor.time))
-                prices = anchor.open * np.exp(q)
-                entry = {"dates": dates}
-                entry.update({name: [round(float(v), places) for v in prices[:, j]]
-                              for j, name in enumerate(SERIES)})
-                entry.update({
-                    "model": model,
-                    "anchor": {"time": anchor.time.strftime("%Y-%m-%d %H:%M"),
-                               "price": round(anchor.open, places)},
-                    "horizon_days": horizon,
-                    "params": params.as_dict(),
-                })
-                (quarterly if family == "quarterly" else cones)[key] = entry
+            for model, entry in cone.items():
+                (quarterly if family == "quarterly" else cones)[f"{model}_{suffix}"] = entry
+            if family == "quarterly":
+                quarterly_anchors.append({"label": suffix,
+                                          "anchor_date": bars[idx].time.strftime("%Y-%m-%d")})
 
-    return {"cones": cones, "quarterly": quarterly,
+    return {"cones": cones, "quarterly": quarterly, "quarterly_anchors": quarterly_anchors,
             "weekdays": sorted(weekdays), "last_bar": bars[-1].time}
+
+
+def history(ticker: str, bars_in: Sequence, previous: Optional[dict] = None) -> Optional[dict]:
+    """Past weekly and monthly cones for the Replay page →
+    {"weekly": {"YYYY-MM-DD": {model: entry}}, "monthly": {...}}.
+
+    Covers the anchors of the last HISTORY_DAYS calendar days. A past
+    period's cone never changes, so anchors already in `previous` (this
+    producer's earlier file) with the same anchor price are reused; only
+    the current period is always recomputed."""
+    bars = normalize(bars_in)
+    if len(bars) < models.MIN_RETURNS + 2:
+        return None
+    weekdays = trading_weekdays(bars)
+    closes = np.array([b.close for b in bars])
+    since = bars[-1].time - timedelta(days=HISTORY_DAYS)
+    out: Dict[str, Dict[str, dict]] = {}
+    for family in HISTORY_FAMILIES:
+        old = (previous or {}).get(family) or {}
+        starts = period_starts(bars, family)
+        bucket: Dict[str, dict] = {}
+        for n, idx in enumerate(starts):
+            if bars[idx].time < since:
+                continue
+            key = bars[idx].time.strftime("%Y-%m-%d")
+            cached = old.get(key)
+            current = n == len(starts) - 1
+            if (not current and cached and "gbm" in cached
+                    and cached["gbm"].get("anchor", {}).get("price")
+                    == round(bars[idx].open, _decimals(bars[idx].open))):
+                bucket[key] = cached
+                continue
+            cone = _cone(ticker, bars, closes, idx, family, weekdays, archive=True)
+            if cone is not None:
+                bucket[key] = cone
+        out[family] = bucket
+    return out
