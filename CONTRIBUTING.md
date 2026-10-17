@@ -40,7 +40,7 @@ There are many ways to contribute, regardless of your skill level:
 
 ### Other Ways to Help
 
-- Report bugs by opening an Issue
+- Report bugs by opening an Issue (security problems privately; see [SECURITY.md](SECURITY.md))
 - Suggest new features or overlays
 - Review open Pull Requests
 - Improve the README or this CONTRIBUTING guide
