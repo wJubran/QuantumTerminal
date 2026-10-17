@@ -8,6 +8,16 @@ Notable changes to Quantum Terminal. The format follows
 
 ### Added
 
+- **Market regimes computed by the terminal** (the REGIMES strip above the chart, and its shading):
+  - **MICRO:** each instrument's volatility regime, calm to stressed, from a hidden Markov model on its
+    daily bars (2–4 states by BIC). It is refitted walk-forward every month, so no day is labelled with
+    later data.
+  - **⚠ IMMINENT:** a 15-minute volatility alarm. It fires when the next two hours are expected to be at
+    least 1.5 times as volatile as usual for those hours; the session clock is factored out.
+  - **MACRO:** the GOLDILOCKS / REFLATION / STAGFLATION / DEFLATION quadrant, from the S&P 500, 10-year
+    breakeven inflation and WTI crude on FRED (free, no key; needs internet).
+- Learning Center article *Market regimes (HMM)* (English and Arabic), and a *How the regimes are
+  computed* section in both READMEs.
 - **Five more data sources**, picked in *Settings → DATA SOURCES* (with TEST and USE buttons) while the
   terminal runs, or with `python launcher.py --provider <type>`:
   - **Yahoo Finance**: free, no account. Forex; metals, energy, grain, soft and livestock futures;

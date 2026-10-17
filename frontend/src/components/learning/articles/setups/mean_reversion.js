@@ -28,8 +28,8 @@ export default {
       heading: { en: "When it works", ar: "متى يعمل" },
       bullets: [
         {
-          en: "The market is ranging, not trending — HMM regime = ranging / normal.",
-          ar: "السوق في range وليس في trend — حالة الـ HMM regime = ranging أو normal.",
+          en: "The market is ranging, not trending, and the MICRO regime reads calm or normal (REGIMES strip).",
+          ar: "السوق في range وليس في trend، وحالة MICRO في شريط REGIMES هي calm أو normal.",
         },
         {
           en: "OU half-life is short (a few days) — the price statistically wants to come back fast.",
@@ -62,8 +62,8 @@ export default {
           ar: "Trend breakout: إذا كسر السعر الـ extreme low بكميات كبيرة، فالـ mean نفسه ينتقل. اخرج بخسارة.",
         },
         {
-          en: "Regime change: HMM flips from ranging to trending mid-trade → tighten stop or exit early.",
-          ar: "تغيّر نظامي: الـ HMM ينتقل من ranging إلى trending أثناء الصفقة → شدّ الـ stop أو اخرج مبكراً.",
+          en: "Regime change: the MICRO regime turns stressed, or IMMINENT appears, mid-trade → tighten stop or exit early.",
+          ar: "تغيّر الحالة: تتحول حالة MICRO إلى stressed أو يظهر تنبيه IMMINENT أثناء الصفقة → شدّ الـ stop أو اخرج مبكراً.",
         },
         {
           en: "Options lens flags tail risk: if the RN distribution shows unusual left-tail pricing, the market is paying up for a crash — don't fade that.",
