@@ -166,7 +166,10 @@ class FakeProvider:
 
 
 @pytest.fixture
-def provider():
+def provider(monkeypatch):
+    from local_analysis import bands
+    monkeypatch.setattr(bands, "REPLAY_DAYS", 20)        # keep the Replay archives short
+    monkeypatch.setattr(cones, "HISTORY_DAYS", 40)
     runner._built.clear()
     return FakeProvider(daily_bars(datetime(2025, 1, 6), datetime(2026, 10, 16)))
 
@@ -208,7 +211,8 @@ def test_the_chart_routes_serve_local_cones():
     try:
         with TestClient(data_server.app, base_url="http://127.0.0.1:8502") as client:
             runner._built.clear()
-            assert runner.update_ticker("XAUUSD", data_server.app.state.provider)
+            assert runner.update_ticker("XAUUSD", data_server.app.state.provider, force=True,
+                                        phases=("live",))
             c = client.get("/api/cones/XAUUSD").json()
             assert {"gbm_curr", "mjd_month_curr", "bates_daily_curr"} <= set(c)
             assert len(c["gbm_curr"]["median"]) == len(c["gbm_curr"]["dates"])

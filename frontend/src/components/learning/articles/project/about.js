@@ -24,8 +24,8 @@ export default {
           ar: "معظم منصات الأفراد تعتمد على مؤشرات متأخرة مثل RSI أو MACD. أما Quantum Terminal فيعرض المدى الذي يُرجَّح إحصائياً أن يتحرك فيه السعر: نطاقات احتمالية مبنية على نماذج GBM وMJD وBates، مرسومة مباشرة فوق الشموع الحية.",
         },
         {
-          en: "The terminal stays fast and focused on live prices, charts and order management: the volatility cones are computed in the background once per trading day from the feed's own daily bars, and the heavier analyses (bands, options positioning, regimes) are prepared ahead of time.",
-          ar: "تبقى المنصة سريعة ومركّزة على الأسعار الحية والشارت وإدارة الأوامر: الـ volatility cones تُحسب في الخلفية مرة في كل يوم تداول من الشموع اليومية لمصدر البيانات نفسه، والتحليلات الأثقل (الـ bands ومراكز الخيارات والـ regimes) تُجهَّز مسبقاً.",
+          en: "The terminal stays fast and focused on live prices, charts and order management: the volatility cones and bands are computed in the background once per trading day from the feed's own daily bars, while options positioning and regimes are read from prepared analysis files.",
+          ar: "تبقى المنصة سريعة ومركّزة على الأسعار الحية والشارت وإدارة الأوامر: الـ volatility cones والـ bands تُحسب في الخلفية مرة في كل يوم تداول من الشموع اليومية لمصدر البيانات نفسه، أما مراكز الخيارات والـ regimes فتُقرأ من ملفات تحليل مُعدّة مسبقاً.",
         },
       ],
     },
