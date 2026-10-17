@@ -46,8 +46,8 @@ export default {
       heading: { en: "Analysis data", ar: "بيانات التحليل" },
       paragraphs: [
         {
-          en: "Volatility cones, bands and options levels are read from pre-computed files kept in a local cache. The open-source edition does not ship a data server yet, so these overlays appear only when such files are present. Live charts, orders, the simulator and this Learning Center work without them.",
-          ar: "الـ volatility cones والـ bands ومستويات الخيارات تُقرأ من ملفات محسوبة مسبقاً محفوظة في ذاكرة تخزين محلية (cache). النسخة مفتوحة المصدر لا تتضمن سيرفر بيانات حتى الآن، لذلك تظهر هذه الطبقات فقط عند توفر تلك الملفات. أما الشارت الحي والأوامر والمحاكي ومركز التعلم فتعمل بدونها.",
+          en: "Volatility cones are computed by the terminal itself: a few seconds after start-up, and again whenever a new daily bar appears, it builds the DAILY, WEEKLY, MONTHLY and QUARTERLY cones (GBM, MJD and Bates) from the feed's own daily bars and keeps them in a local cache. Bands, options levels and regimes are read from pre-computed files in the same cache; the open-source edition does not produce those yet, so they appear only when such files are present.",
+          ar: "الـ volatility cones تحسبها المنصة بنفسها: بعد التشغيل بثوانٍ، ثم كلما ظهرت شمعة يومية جديدة، تبني الـ cones الخاصة بـ DAILY وWEEKLY وMONTHLY وQUARTERLY (بنماذج GBM وMJD وBates) من الشموع اليومية لمصدر البيانات نفسه، وتحفظها في ذاكرة تخزين محلية (cache). أما الـ bands ومستويات الخيارات والـ regimes فتُقرأ من ملفات محسوبة مسبقاً في الـ cache نفسه؛ والنسخة مفتوحة المصدر لا تنتجها بعد، لذلك تظهر فقط عند توفر تلك الملفات.",
         },
       ],
     },

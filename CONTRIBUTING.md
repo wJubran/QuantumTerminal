@@ -30,7 +30,7 @@ There are many ways to contribute, regardless of your skill level:
 
 | Area | Description | Skills Needed |
 |------|-------------|---------------|
-| **Local Quant Engine** | Compute cones / bands / regimes from provider bars so the analysis panels work without pre-computed data | Python, NumPy, Quant |
+| **Local Quant Engine** | Cones are computed in `backend/local_analysis/`; extend it to bands, regimes and options levels so every panel works without pre-computed data | Python, NumPy, Quant |
 | **New Broker Providers** | Add Interactive Brokers, Alpaca, or other providers (implement `providers/base_provider.py`; `providers/sim_provider.py` is a complete example) | Python, REST/WebSocket APIs |
 | **UI** | Improve the React UI in `frontend/` (see [Working on the UI](#working-on-the-ui)) | React, JavaScript |
 | **Translations** | The Learning Center is in English and Arabic; translate more of the UI or add a language | Any language you speak |
