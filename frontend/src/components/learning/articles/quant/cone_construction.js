@@ -19,12 +19,12 @@ export default {
       visual: "cone_construction",
       paragraphs: [
         {
-          en: "Every cone starts as a Monte Carlo simulation. From the anchor point (the last known price), we roll a stochastic model forward one small step at a time. At each step the next price is the previous price times a factor drawn from a random distribution (that's the noise of the market).",
-          ar: "كل cone يبدأ كـ Monte Carlo simulation. من نقطة الـ anchor (آخر سعر معروف)، نشغّل نموذج stochastic خطوة بخطوة. عند كل خطوة، السعر التالي = السعر السابق × عامل مأخوذ من توزيع عشوائي (هذا هو الـ noise في السوق).",
+          en: "Think of every cone as a Monte Carlo simulation. From the anchor point (the open of the period the cone covers), a stochastic model is rolled forward one small step at a time. At each step the next price is the previous price times a factor drawn from a random distribution (that's the noise of the market).",
+          ar: "تخيّل كل cone كـ Monte Carlo simulation. من نقطة الـ anchor (سعر افتتاح الفترة التي يغطيها الـ cone)، يُشغَّل نموذج stochastic خطوة بخطوة. عند كل خطوة، السعر التالي = السعر السابق × عامل مأخوذ من توزيع عشوائي (هذا هو الـ noise في السوق).",
         },
         {
-          en: "We repeat that whole walk thousands of times (typically 20,000 – 100,000 paths). Each path is one possible future; together they cover the full distribution of where price could be at every forward time step.",
-          ar: "نكرر هذا المسار كاملاً آلاف المرات (عادةً بين 20,000 و 100,000 path). كل path مستقبل ممكن واحد؛ مجموعها يغطي التوزيع الكامل لمكان السعر في كل لحظة مستقبلية.",
+          en: "Repeat that walk thousands of times and each path is one possible future; together they cover the full distribution of where price could be at every forward step. Quantum Terminal computes the GBM and MJD cones exactly (the lines infinitely many paths would give) and simulates 25,000 paths for Bates, using only the price history before the anchor.",
+          ar: "كرّر هذا المسار آلاف المرات، فيكون كل path مستقبلاً ممكناً واحداً؛ ومجموعها يغطي التوزيع الكامل لمكان السعر عند كل خطوة مستقبلية. يحسب Quantum Terminal الـ cones الخاصة بـ GBM وMJD بدقة رياضية (الخطوط نفسها التي يعطيها عدد لا نهائي من الـ paths)، ويحاكي 25,000 path لنموذج Bates، مستخدماً فقط تاريخ الأسعار قبل الـ anchor.",
         },
       ],
     },
@@ -32,12 +32,12 @@ export default {
       heading: { en: "Why lines and not clouds", ar: "لماذا خطوط وليس clouds" },
       paragraphs: [
         {
-          en: "At each forward day, we sort all simulated prices and pick specific percentiles: p05, p25, p50, p75, p95 (and sometimes p01 / p99). Those percentiles connected over time become the cone's lines.",
-          ar: "عند كل يوم مستقبلي، نرتّب جميع الأسعار المحاكاة ونختار نسباً مئوية محددة: p05, p25, p50, p75, p95 (وأحياناً p01 / p99). هذه النسب موصولة عبر الزمن تصبح خطوط الـ cone.",
+          en: "At each forward step, all possible prices are sorted and the percentiles that match ±1, ±2 and ±3 standard deviations of a normal distribution are picked: p0.13, p2.3, p15.9, p50, p84.1, p97.7, p99.87. Connected over time they become the cone's lines: sd3 low, sd2 low, sd1 low, median, sd1 high, sd2 high, sd3 high.",
+          ar: "عند كل خطوة مستقبلية تُرتَّب كل الأسعار الممكنة، وتُختار النسب المئوية المقابلة لـ ±1 و±2 و±3 انحراف معياري في التوزيع الطبيعي: p0.13 وp2.3 وp15.9 وp50 وp84.1 وp97.7 وp99.87. وعند وصلها عبر الزمن تصبح خطوط الـ cone: sd3 low وsd2 low وsd1 low والـ median وsd1 high وsd2 high وsd3 high.",
         },
         {
-          en: "So p50 = the median path — half the simulations ended above, half below. p95 = only 5% of paths reach higher. p05 = only 5% went lower. The lines are statistical boundaries, not forecasts of where price will go.",
-          ar: "إذاً p50 = الـ median — نصف الـ simulations انتهى فوقه، نصف تحته. p95 = فقط 5% من الـ paths وصلوا أعلى منه. p05 = فقط 5% نزلوا أدنى منه. الخطوط حدود إحصائية وليست توقعاً لمسار السعر.",
+          en: "So the median (p50) is the middle — half the paths end above it, half below. Only about 2.3% of paths end above sd2 high, and another 2.3% below sd2 low. The lines are statistical boundaries, not forecasts of where price will go.",
+          ar: "إذاً الـ median ‏(p50) هو المنتصف — نصف الـ paths ينتهي فوقه ونصفها تحته. ونحو 2.3% فقط من الـ paths ينتهي فوق sd2 high، و2.3% أخرى تحت sd2 low. الخطوط حدود إحصائية وليست توقعاً لمسار السعر.",
         },
       ],
     },
@@ -53,8 +53,8 @@ export default {
           ar: "معدّل التوسع يعتمد على الـ volatility في النموذج. Vol مرتفع → الـ cone يتوسع بسرعة. Vol منخفض → يبقى ضيقاً.",
         },
         {
-          en: "Price staying inside the sd1 envelope (between p25 and p75) is normal behavior. Touching sd2 (p05 / p95) is statistically rare — about 1 day in 20.",
-          ar: "بقاء السعر داخل sd1 envelope (بين p25 و p75) سلوك طبيعي. لمس sd2 (p05 / p95) نادر إحصائياً — حوالي يوم واحد من كل 20.",
+          en: "About two thirds of outcomes end inside the sd1 envelope (p15.9 to p84.1) — normal behavior. Only about 1 in 20 ends outside sd2 (p2.3 to p97.7), and about 3 in 1,000 outside sd3.",
+          ar: "نحو ثلثي النتائج تنتهي داخل sd1 envelope ‏(من p15.9 إلى p84.1) — سلوك طبيعي. ونحو نتيجة واحدة من كل 20 تنتهي خارج sd2 ‏(من p2.3 إلى p97.7)، ونحو 3 من كل 1,000 خارج sd3.",
         },
       ],
     },

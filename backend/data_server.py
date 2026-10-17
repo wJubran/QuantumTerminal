@@ -758,6 +758,19 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             log.warning(f"Failed to start cache watcher task: {e}")
 
+    # ── Local analysis: volatility cones from the feed's own daily bars ──
+    # Writes {TICKER}_cones.json / _quarterly_cones.json into the analysis
+    # cache, so the cone overlays work without a data server. Never touches
+    # files another producer wrote. MK_LOCAL_ANALYSIS=0 turns it off.
+    try:
+        from local_analysis import create_local_analysis_task
+        analysis_factory = create_local_analysis_task(app.state, manager.broadcast_event)
+        if analysis_factory is not None:
+            tasks.append(asyncio.create_task(analysis_factory()))
+            log.info("Local analysis task started (volatility cones)")
+    except Exception as e:
+        log.warning(f"Failed to start local analysis task: {e}")
+
     # NOTE: Signal lifecycle, auto executor, options archive, trade reconciliation
     # are all PRO-only features — removed in consumer (Rule C1).
 
