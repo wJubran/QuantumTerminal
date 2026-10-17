@@ -15,7 +15,7 @@ import logging
 import time
 from typing import Dict, List, Optional
 
-log = logging.getLogger("mk.macro_data")
+log = logging.getLogger("qt.macro_data")
 
 # ════════════════════════════════════════════════════════
 # ETF UNIVERSE — no hardcoded assets, but ETFs are

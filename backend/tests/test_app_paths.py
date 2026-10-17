@@ -5,6 +5,9 @@ import pytest
 
 import app_paths
 
+# Each test gets its own empty HOME / APPDATA (see conftest).
+pytestmark = pytest.mark.usefixtures("user_dirs")
+
 
 def write(path, text):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -38,48 +41,48 @@ def test_resolved_per_call_not_at_import(monkeypatch, expected_app_dir):
     assert app_paths.cache_dir() == expected_app_dir("QuantumTerminal-v2") / "cache"
 
 
-def test_appdata_is_ignored_off_windows(sandbox, monkeypatch):
+def test_appdata_is_ignored_off_windows(user_dirs, monkeypatch):
     monkeypatch.setattr(app_paths, "_is_windows", lambda: False)
-    assert app_paths.app_data_dir() == sandbox.home / ".QuantumTerminal"
+    assert app_paths.app_data_dir() == user_dirs.home / ".QuantumTerminal"
 
 
-def test_windows_without_appdata_uses_roaming_under_profile(sandbox, monkeypatch):
+def test_windows_without_appdata_uses_roaming_under_profile(user_dirs, monkeypatch):
     monkeypatch.setattr(app_paths, "_is_windows", lambda: True)
     monkeypatch.delenv("APPDATA")
-    assert app_paths.app_data_dir() == sandbox.home / "AppData" / "Roaming" / "QuantumTerminal"
+    assert app_paths.app_data_dir() == user_dirs.home / "AppData" / "Roaming" / "QuantumTerminal"
 
 
 # ── legacy locations ────────────────────────────────────────────────────────
 
-def test_electron_dir_gets_nothing_new(sandbox, monkeypatch):
+def test_electron_dir_gets_nothing_new(user_dirs, monkeypatch):
     # Electron passes MK_APP_DIR_NAME=QuantumTerminal-v2: its existing
     # folder is already the target, so nothing is copied or added there.
     monkeypatch.setattr(app_paths, "_is_windows", lambda: True)
     monkeypatch.setenv("MK_APP_DIR_NAME", "QuantumTerminal-v2")
-    write(sandbox.appdata / "QuantumTerminal-v2" / "pulse_watchlist.json", "{}")
+    write(user_dirs.appdata / "QuantumTerminal-v2" / "pulse_watchlist.json", "{}")
 
     target = app_paths.app_data_dir()
 
-    assert target == sandbox.appdata / "QuantumTerminal-v2"
+    assert target == user_dirs.appdata / "QuantumTerminal-v2"
     assert [p.name for p in target.iterdir()] == ["pulse_watchlist.json"]
 
 
-def test_pulse_state_is_copied_from_its_old_default_dir(sandbox, monkeypatch):
+def test_pulse_state_is_copied_from_its_old_default_dir(user_dirs, monkeypatch):
     # Without MK_APP_DIR_NAME, Pulse Room used %APPDATA%\QuantumTerminal-v2.
     monkeypatch.setattr(app_paths, "_is_windows", lambda: True)
-    old = write(sandbox.appdata / "QuantumTerminal-v2" / "pulse_watchlist.json",
+    old = write(user_dirs.appdata / "QuantumTerminal-v2" / "pulse_watchlist.json",
                 '{"assets": [{"symbol": "XAUUSD", "families": ["CO"]}]}')
 
     new = app_paths.app_data_dir() / "pulse_watchlist.json"
 
-    assert new == sandbox.appdata / "QuantumTerminal" / "pulse_watchlist.json"
+    assert new == user_dirs.appdata / "QuantumTerminal" / "pulse_watchlist.json"
     assert new.read_text(encoding="utf-8") == old.read_text(encoding="utf-8")
     assert old.exists()  # copied, not moved
 
 
-def test_posix_files_are_copied_once_and_never_overwritten(sandbox, monkeypatch):
+def test_posix_files_are_copied_once_and_never_overwritten(user_dirs, monkeypatch):
     monkeypatch.setattr(app_paths, "_is_windows", lambda: False)
-    home = sandbox.home
+    home = user_dirs.home
     target = home / ".QuantumTerminal"
     write(home / ".config" / "QuantumTerminal-v2" / "pulse_state.json", '{"enabled": true}')
     write(home / "AppData" / "Roaming" / "QuantumTerminal" / "user_config.json", '{"universe": {}}')
@@ -98,10 +101,10 @@ def test_posix_files_are_copied_once_and_never_overwritten(sandbox, monkeypatch)
     assert not (target / "user_config.json").exists()
 
 
-def test_posix_account_files_are_copied_from_lowercase_dir(sandbox, monkeypatch):
+def test_posix_account_files_are_copied_from_lowercase_dir(user_dirs, monkeypatch):
     monkeypatch.setattr(app_paths, "_is_windows", lambda: False)
-    old = write(sandbox.home / ".quantumterminal" / "account_state.json", '{"peak_equity": 1}')
-    if (sandbox.home / ".QuantumTerminal").exists():
+    old = write(user_dirs.home / ".quantumterminal" / "account_state.json", '{"peak_equity": 1}')
+    if (user_dirs.home / ".QuantumTerminal").exists():
         pytest.skip("case-insensitive filesystem: both spellings are one folder")
 
     new = app_paths.app_data_dir() / "account_state.json"
@@ -109,9 +112,9 @@ def test_posix_account_files_are_copied_from_lowercase_dir(sandbox, monkeypatch)
     assert new.read_text(encoding="utf-8") == old.read_text(encoding="utf-8")
 
 
-def test_failed_copy_is_retried_on_next_start(sandbox, monkeypatch):
+def test_failed_copy_is_retried_on_next_start(user_dirs, monkeypatch):
     monkeypatch.setattr(app_paths, "_is_windows", lambda: True)
-    write(sandbox.appdata / "QuantumTerminal-v2" / "pulse_state.json", '{"enabled": true}')
+    write(user_dirs.appdata / "QuantumTerminal-v2" / "pulse_state.json", '{"enabled": true}')
     real_copy2 = shutil.copy2
 
     def locked(src, dst):

@@ -123,6 +123,11 @@ def create_execution_router(cfg_manager=None, app=None, broadcast_event=None) ->
         if cfg_manager is None:
             return None
         try:
+            # Paper trading when the simulator is the execution account
+            # (MK_PROVIDER=sim); live orders keep going to MT5 as before.
+            execution = cfg_manager.get_execution_provider()
+            if execution is not None and getattr(execution, "is_simulated", False):
+                return execution
             return cfg_manager.get_provider("mt5_default")
         except Exception:
             return None

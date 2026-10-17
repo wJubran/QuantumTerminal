@@ -1,4 +1,8 @@
-// version: v5
+// version: v6
+//
+// v6 — Open-source edition: removed secureSavePassword / secureLoadPassword /
+//      secureClearPassword (no login any more) and downloadAndInstall (updates
+//      are GitHub releases opened in the browser).
 // Electron preload — context bridge for privileged native APIs.
 //
 // Anything renderer-side that needs to talk to the OS (file save dialog,
@@ -58,44 +62,4 @@ contextBridge.exposeInMainWorld("mkElectron", {
   //   Opens the given URL in the user's default browser via shell.openExternal.
   //   Only http(s) URLs are allowed.
   openExternal: (url) => ipcRenderer.invoke("mk:open-external", url),
-
-  // v5: secureSavePassword(email, password)
-  //   F-24 — Replaces localStorage.mk_saved_pass with OS-keychain
-  //   encrypted storage via main process safeStorage. Email kept plain
-  //   (not sensitive); password encrypted at rest. Returns
-  //   Promise<{ ok, error? }>. error="encryption_unavailable" on
-  //   platforms where safeStorage can't access keychain (rare Linux).
-  secureSavePassword: (email, password) =>
-    ipcRenderer.invoke("mk:secure-save-password", { email, password }),
-
-  // v5: secureLoadPassword()
-  //   Returns Promise<{ ok, email?, password?, error? }>. When no creds
-  //   saved, returns { ok: true, email: "", password: "" }. Decryption
-  //   failures (encrypted-but-keychain-rotated) return { ok: false,
-  //   error: ... }. Callers should treat any error path as "no saved
-  //   password" and prompt the user.
-  secureLoadPassword: () => ipcRenderer.invoke("mk:secure-load-password"),
-
-  // v5: secureClearPassword()
-  //   Deletes the encrypted creds file. Returns Promise<{ ok, error? }>.
-  //   Idempotent — succeeds even if no file exists.
-  secureClearPassword: () => ipcRenderer.invoke("mk:secure-clear-password"),
-
-  // v4: downloadAndInstall(url, onProgress?)
-  //   Streams installer to %TEMP%, spawns it detached, then quits the
-  //   running terminal. onProgress({ received, total, pct, done? }) is
-  //   called periodically while downloading.
-  //   Returns Promise<{ ok, file?, error? }> — terminal will quit ~800ms
-  //   after { ok: true } so the renderer typically only sees the resolve
-  //   moment briefly before the window closes.
-  downloadAndInstall: (url, onProgress) => {
-    const handler = (_e, data) => {
-      try { if (typeof onProgress === "function") onProgress(data || {}); } catch {}
-    };
-    ipcRenderer.on("mk:installer-progress", handler);
-    const cleanup = () => { try { ipcRenderer.removeListener("mk:installer-progress", handler); } catch {} };
-    return ipcRenderer.invoke("mk:download-and-install", url)
-      .then((res) => { cleanup(); return res; })
-      .catch((e)  => { cleanup(); throw e; });
-  },
 });

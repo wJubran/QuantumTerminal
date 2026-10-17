@@ -71,7 +71,7 @@ from typing import Awaitable, Callable, Optional
 
 import app_paths  # v4: per-user app-data + cache dirs, shared by every module
 
-log = logging.getLogger("mk.cache_watcher")
+log = logging.getLogger("qt.cache_watcher")
 
 DEFAULT_INTERVAL_SECONDS = 1.0
 MIN_INTERVAL_SECONDS = 0.25
