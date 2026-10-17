@@ -903,12 +903,17 @@ class DataSyncClient:
             log.warning(f"[DataSync] Unknown global key: {key}")
             return None
 
+        # Quantum Terminal: no auth and no default data server — when
+        # [server] base_url is empty there is nothing to fetch, use the cache.
+        base_url = _read_config().get("server", "base_url", fallback="").rstrip("/")
+        if not base_url:
+            return self._load_global_cache(key)
+
         try:
-            jwt = self._get_jwt()
-            url = f"{self.base_url}{endpoint}"
-            resp = requests.get(
+            import httpx
+            url = f"{base_url}{endpoint}"
+            resp = httpx.get(
                 url,
-                headers={"Authorization": f"Bearer {jwt}"},
                 timeout=8,  # v7: was 15 — consumer is display-only, fast fail beats long wait
             )
 
