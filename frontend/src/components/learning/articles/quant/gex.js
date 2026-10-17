@@ -53,8 +53,8 @@ export default {
       heading: { en: "Caveats", ar: "تحفظات" },
       bullets: [
         {
-          en: "GEX is computed once at end-of-day from the CBOE options snapshot. Intraday it's stale — use it as structural context, not tick-by-tick signal.",
-          ar: "GEX يُحتسب مرة واحدة نهاية اليوم من snapshot الـ CBOE. خلال اليوم تكون الأرقام قديمة — استعملها كسياق هيكلي، ليس كإشارة لحظية.",
+          en: "GEX is computed by the terminal from public option chains (about 15 minutes delayed), refreshed every 15 minutes while New York trades. Use it as structural context, not a tick-by-tick signal.",
+          ar: "تحسب المنصة الـ GEX من سلاسل خيارات عامة (متأخرة نحو 15 دقيقة)، وتحدّثه كل 15 دقيقة أثناء تداول نيويورك. استخدمه كسياق هيكلي، لا كإشارة لحظية.",
         },
         {
           en: "Strong news flow overrides GEX structure. Don't expect magnets to hold during a Fed press conference.",

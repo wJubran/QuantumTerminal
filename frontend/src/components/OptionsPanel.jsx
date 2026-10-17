@@ -5222,7 +5222,7 @@ function LevelsView({ data, asset, chartData, layers, vis, setVis, refLines,
         explain={EX_REG}
         badges={[
           {label:gex?.regime||"—",color:gex?.regime==="POSITIVE"?C.green:C.red},
-          {label:spot>data.gex_flip?"ABOVE FLIP":"BELOW FLIP",color:spot>data.gex_flip?C.green:C.red},
+          {label:data.gex_flip==null?"NO FLIP":spot>data.gex_flip?"ABOVE FLIP":"BELOW FLIP",color:data.gex_flip!=null&&spot>data.gex_flip?C.green:C.red},
         ]}
         freshnessBadge={<FreshnessBadge computedAt={oldestComputedAt(data.gex?.computed_at, data.gex_flip_computed_at)} tier="B" showCadence />}>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
@@ -5350,7 +5350,7 @@ function LevelsView({ data, asset, chartData, layers, vis, setVis, refLines,
           <Pill label="TOTAL GEX" value={agg?.net_total_gex!=null?fmtB(agg.net_total_gex):"—"} color={agg?.regime==="POSITIVE"?C.green:C.red} sub={agg?.regime}/>
           <Pill label="GEX FLIP" value={dp(data.gex_flip)} color={C.orange} sub={spot>data.gex_flip?"Above → suppress":"Below → amplify"}/>
           <Pill label="MAX PAIN" value={dp(data.max_pain)} color={C.purple}/>
-          <Pill label="HVL" value={dp(data.hvl)} color={C.yellow} sub="high volume level"/>
+          <Pill label="HVL" value={dp(data.hvl)} color={C.yellow} sub="most gamma"/>
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:4}}>
           <div style={{display:"grid",gridTemplateColumns:"90px 1fr 80px",gap:8,fontSize:10,
@@ -6113,18 +6113,18 @@ export default function OptionsPanel() {
               explain="Strike where the most options expire worthless — a magnet for price into expiry."/>
             <Pill label="PUT WALL ↑" value={dp(data.walls?.primary_put_wall)} color={C.green}
               sub="support"
-              explain="Largest put-OI strike — tends to act as support."/>
+              explain="Strike below spot with the most put gamma — tends to act as support."/>
             <Pill label="CALL WALL ↓" value={dp(data.walls?.primary_call_wall)} color={C.red}
               sub="resistance"
-              explain="Largest call-OI strike — tends to act as resistance."/>
+              explain="Strike above spot with the most call gamma — tends to act as resistance."/>
             <Pill label="HVL" value={dp(data.hvl)} color={C.yellow}
-              sub="high vol level"
-              explain="High-volume level. Price tends to accelerate away from it."/>
+              sub="most gamma"
+              explain="Strike carrying the most dealer gamma (calls + puts). Price tends to stick near it."/>
             <Pill label="EXP MOVE"
               value={em?.straddle!=null?`±${dp(em.straddle)} (${em.pct?.toFixed(1)}%)` : "—"}
               color={C.gray}
               sub={em?.move_up?`${dp(em.move_up)} ↑  ${dp(em.move_down)} ↓`:"ATM straddle"}
-              explain="Options-implied expected range by today's expiry (±1σ)."/>
+              explain="Options-implied move to the first expiry after today (ATM straddle)."/>
             <Pill label="NET GEX" value={agg?.net_total_gex!=null?fmtB(agg.net_total_gex):"—"}
               color={agg?.regime==="POSITIVE"?C.green:C.red}
               sub={agg?.regime||""}
