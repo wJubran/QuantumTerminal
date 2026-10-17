@@ -186,6 +186,8 @@ The backend listens on `127.0.0.1` only. It rejects requests from other websites
 allow-list), so a web page you visit cannot place orders or read data through your running terminal.
 Orders are blocked until you switch trading on, and calls into MetaTrader 5 are serialized.
 
+Found a vulnerability? Please report it privately; see [SECURITY.md](SECURITY.md).
+
 ## Roadmap
 
 - **Local quant engine** — compute cones, bands and regimes from the feed's own bars, so the analysis
