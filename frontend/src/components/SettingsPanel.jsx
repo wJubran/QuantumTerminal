@@ -24,7 +24,8 @@
  * v4 — Open-source edition: removed the account / sign-out block (there are
  *   no accounts), the broker affiliate button (replaced by a pointer to the
  *   built-in simulated market) and the Telegram link (→ GitHub issues).
- *   Maintenance shows DATA SERVER: NONE when no data server is configured.
+ *   Maintenance shows DATA SERVER: NONE when no data server is configured;
+ *   on the simulator the trading switch talks about the paper account.
  *
  * v3 (2026-05-11) — Tradovate POC removed. The feature was disqualified.
  *   Dropped: TRADOVATE_ENABLED flag, tv* state (tvConfig/tvStatus/tvBusy/
@@ -334,6 +335,11 @@ export default function SettingsPanel({ open, onClose, configHook, config }) {
       fetchMt5Status();
     }
   }, [expanded.providers, fetchMt5Config, fetchMt5Status]);
+  // The trading switch words itself for the simulator's paper account, so
+  // Trading needs the status too.
+  useEffect(() => {
+    if (expanded.trading && !mt5Status) fetchMt5Status();
+  }, [expanded.trading, mt5Status, fetchMt5Status]);
 
   // REMOVED: debugConfig, toggleSubprocessDebug (developer section — Rule C1)
   // REMOVED: clearResult, restartStatus (maintenance — Rule C1)
@@ -783,12 +789,17 @@ export default function SettingsPanel({ open, onClose, configHook, config }) {
                       LIVE TRADING
                     </span>
                     <div style={{ fontSize: 7, color: C.muted, marginTop: 2 }}>
-                      {execution.live_trading ? "⚠ ORDERS WILL BE SENT TO BROKER" : "Orders are blocked — safe mode"}
+                      {!execution.live_trading ? "Orders are blocked — safe mode"
+                        : mt5Status?.simulated ? "Orders go to the simulated paper account"
+                        : "⚠ ORDERS WILL BE SENT TO BROKER"}
                     </div>
                   </div>
                   <button onClick={() => {
                     if (!execution.live_trading) {
-                      if (!window.confirm("Enable LIVE TRADING?\n\nThis allows the terminal to send real orders to your broker. Make sure you understand the risks.")) return;
+                      const prompt = mt5Status?.simulated
+                        ? "Enable trading on the simulated paper account?\n\nOrders fill at simulated prices — no real money is involved."
+                        : "Enable LIVE TRADING?\n\nThis allows the terminal to send real orders to your broker. Make sure you understand the risks.";
+                      if (!window.confirm(prompt)) return;
                     }
                     updateConfig({ execution: { live_trading: !execution.live_trading } });
                   }} style={{
