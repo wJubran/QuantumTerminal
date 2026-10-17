@@ -1,11 +1,15 @@
-# version: v3
+# version: v4
 """
-execution_routes.py — MT5 trade execution HTTP layer (v3).
+execution_routes.py — MT5 trade execution HTTP layer (v4).
 
 v1 was a stub (PRO-only). v2 exposes the provider's execution methods as
 HTTP endpoints so the consumer OrderTicket / ExposureStrip / quick-trade
 buttons can act on the user's live MT5 account.
 v3 adds the pending-order lifecycle: list / modify-price-or-SLTP / cancel.
+v4 sends orders to the active execution account (simulator, paper account on
+   live prices, OANDA, MT5), and refuses new orders while LIVE TRADING
+   (execution.live_trading) is off, as the order ticket already did. Closing
+   positions and editing SL/TP stay possible.
 
 Endpoints:
     GET    /api/positions                  — list open positions
@@ -123,14 +127,22 @@ def create_execution_router(cfg_manager=None, app=None, broadcast_event=None) ->
         if cfg_manager is None:
             return None
         try:
-            # Paper trading when the simulator is the execution account
-            # (MK_PROVIDER=sim); live orders keep going to MT5 as before.
+            # The active execution account when it can take orders: the
+            # simulator or the paper account (paper trading), OANDA, MT5.
+            # Otherwise MetaTrader 5, as before.
             execution = cfg_manager.get_execution_provider()
-            if execution is not None and getattr(execution, "is_simulated", False):
+            if execution is not None and getattr(execution, "can_execute", False):
                 return execution
             return cfg_manager.get_provider("mt5_default")
         except Exception:
             return None
+
+    def _live_trading() -> bool:
+        """The LIVE TRADING switch in Settings → TRADING (off by default)."""
+        try:
+            return bool((cfg_manager.get_config().get("execution") or {}).get("live_trading", False))
+        except Exception:
+            return False
 
     # ── GET /api/positions ─────────────────────────────────────────────
     @router.get("/api/positions")
@@ -153,6 +165,9 @@ def create_execution_router(cfg_manager=None, app=None, broadcast_event=None) ->
     @router.post("/api/orders")
     async def place_order(body: OrderBody):
         import asyncio
+        if cfg_manager is not None and not _live_trading():
+            raise HTTPException(403, {"error": "trading_disabled",
+                                      "message": "Trading is off: switch LIVE TRADING on in Settings → TRADING."})
         prov = _provider()
         if prov is None or not getattr(prov, "connected", False):
             raise HTTPException(503, {"error": "mt5_disconnected",

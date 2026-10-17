@@ -1,8 +1,11 @@
-// version: v4
+// version: v5
 /**
  * useTerminalData — Consumer Terminal Data Store
  * ═══════════════════════════════════════════════
  * Quantum Terminal | Display-Only
+ *
+ * v5 — serverStatus.feedLabel (the data source's name from /api/health), and
+ *      a provider_changed event (Settings → DATA SOURCES) re-reads it.
  *
  * v4 — Added inert window.__mkDebugHandle publish for the disposable
  *      debug-telemetry harness. No effect when the harness isn't loaded.
@@ -132,7 +135,7 @@ export default function useTerminalData() {
   const [mt5Connected, setMt5Connected] = useState(false);
   // Active data feed from /api/health — the built-in simulator reports
   // provider.simulated so the UI can say its prices are not real.
-  const [feed, setFeed] = useState({ type: "mt5", simulated: false });
+  const [feed, setFeed] = useState({ type: "mt5", label: "", simulated: false });
   const [dataReady, setDataReady] = useState(false);
 
   // ── Data sync status (consumer-specific — Rule C4) ──
@@ -158,6 +161,7 @@ export default function useTerminalData() {
         setMt5Connected(health.mt5_connected);
         setFeed({
           type: health.provider?.type || "mt5",
+          label: health.provider?.label || "",
           simulated: !!health.provider?.simulated,
         });
 
@@ -404,6 +408,19 @@ export default function useTerminalData() {
       refreshConfig();
     }
 
+    // ── Another data source was picked (Settings → DATA SOURCES) ──
+    if (msg.type === "provider_changed") {
+      apiFetch("/api/health").then(health => {
+        if (!health) return;
+        setMt5Connected(health.mt5_connected);
+        setFeed({
+          type: health.provider?.type || "mt5",
+          label: health.provider?.label || "",
+          simulated: !!health.provider?.simulated,
+        });
+      });
+    }
+
     // NOTE: orchestrator_complete event is ignored in consumer —
     // data updates come via data_sync_client polling, not local orchestrator.
   }, [events.lastMessage, debouncedRefresh, refreshConfig]);
@@ -517,6 +534,7 @@ export default function useTerminalData() {
     connected: prices.isConnected || events.isConnected,
     mt5Connected,
     feedType: feed.type,
+    feedLabel: feed.label,
     simulated: feed.simulated,
     wsPrice: prices.isConnected,
     wsEvent: events.isConnected,
