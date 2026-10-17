@@ -184,7 +184,10 @@ function startBackend() {
       PYTHONUNBUFFERED: "1",
       MK_PORT: String(BACKEND_PORT),       // launcher.py reads this
       MK_NO_BROWSER: "1",                  // skip auto-launch of system browser
-      MK_APP_DIR_NAME: "QuantumTerminal-v2",      // isolate AppData from v1 (auth, cache, account state)
+      // Keep: isolates AppData from v1/browser mode (auth, cache, account state).
+      // backend/app_paths.py defaults to "QuantumTerminal" without it, which
+      // would hide existing %APPDATA%\QuantumTerminal-v2 data.
+      MK_APP_DIR_NAME: "QuantumTerminal-v2",
     },
   });
 

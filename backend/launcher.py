@@ -23,6 +23,8 @@ import shutil
 import logging
 from pathlib import Path
 
+import app_paths
+
 log = logging.getLogger("mk.launcher")
 
 # — Determine base paths (works for both dev and PyInstaller) —
@@ -41,8 +43,8 @@ else:
 
 PORT = int(os.environ.get("MK_PORT", "8502"))   # v2: Electron passes MK_PORT
 
-# v2: AppData dir name (env-var driven; default "QuantumTerminal" preserves v1 path).
-APP_DIR = os.environ.get("MK_APP_DIR_NAME", "QuantumTerminal")
+# AppData dir name: MK_APP_DIR_NAME or "QuantumTerminal" (see app_paths).
+APP_DIR = app_paths.app_dir_name()
 
 # — Default config content (f-string so APP_DIR is substituted at module load) —
 DEFAULT_CONFIG = f"""\
@@ -98,28 +100,14 @@ def ensure_config():
 
 
 def _get_appdata_base() -> Path:
-    """Get AppData\\Roaming\\<APP_DIR> path. APP_DIR comes from MK_APP_DIR_NAME env var."""
-    import platform
-    if platform.system() == "Windows":
-        appdata = os.environ.get("APPDATA", "")
-        if appdata:
-            return Path(appdata) / APP_DIR
-    return Path.home() / f".{APP_DIR.lower()}"
+    """Get the per-user app-data dir (%APPDATA%\\<APP_DIR> on Windows)."""
+    return app_paths.app_data_dir()
 
 
 def ensure_appdata():
     """Create AppData directories for auth cache and data cache."""
-    appdata = os.environ.get("APPDATA", "")
-    if appdata:
-        base = Path(appdata) / APP_DIR
-    else:
-        base = Path.home() / "AppData" / "Roaming" / APP_DIR
-
-    for subdir in ["", "cache"]:
-        d = base / subdir if subdir else base
-        d.mkdir(parents=True, exist_ok=True)
-
-    return base
+    app_paths.cache_dir()  # creates the app-data dir and its cache subdir
+    return app_paths.app_data_dir()
 
 
 def open_browser():
