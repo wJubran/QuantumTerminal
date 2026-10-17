@@ -1,4 +1,8 @@
-# version: v4
+# version: v5
+# v5 — cache dir comes from app_paths.cache_dir(), the folder the sync client
+#      and the regime/cone routes read. Previously defaulted to
+#      "QuantumTerminal-v2" (and ~/.config off Windows), so outside Electron
+#      on Windows it never found the cones/bands files.
 """Pulse snapshot builder.
 
 Reads cached cones/bands JSONs, extracts SD edges as forward curves,
@@ -8,10 +12,11 @@ runs never corrupt the live snapshot.
 
 import json
 import logging
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+
+import app_paths
 
 from . import state
 
@@ -22,11 +27,7 @@ log = logging.getLogger("mk.pulse_room.builder")
 # ---------- path resolvers ----------
 
 def _default_cache_dir() -> Path:
-    appdata = os.environ.get("APPDATA")
-    if not appdata:
-        appdata = str(Path.home() / ".config")
-    dir_name = os.environ.get("MK_APP_DIR_NAME", "QuantumTerminal-v2")
-    return Path(appdata) / dir_name / "cache"
+    return app_paths.cache_dir()
 
 
 def cones_path(ticker: str, cache_dir: Optional[Path] = None) -> Path:
@@ -312,8 +313,8 @@ def build_snapshot(
 ) -> dict:
     """Build the snapshot dict; optionally persist to AppData.
 
-    Returns the snapshot dict regardless. If `write=True`, writes to
-    %APPDATA%/QuantumTerminal-v2/pulse_snapshot.json atomically.
+    Returns the snapshot dict regardless. If `write=True`, writes
+    pulse_snapshot.json to the app-data dir (app_paths) atomically.
 
     Missing or malformed source files for an asset cause that asset
     to be skipped (with a logged warning). Other assets still build.

@@ -6,7 +6,8 @@ Centralized logging configuration. Adds a daily-rotating file handler so logs
 survive across runs and can be attached to support tickets, while keeping the
 console output identical to v1.
 
-Log location: %APPDATA%\\<APP_DIR>\\logs\\backend-YYYY-MM-DD.log
+Log location: <app-data dir>\\logs\\backend.log — app_paths.app_data_dir(),
+              i.e. %APPDATA%\\<APP_DIR>\\ on Windows, ~/.<APP_DIR>/ elsewhere
 Rotation:     daily at midnight, 14 days retained.
 Format:       same as console — `YYYY-MM-DD HH:MM:SS [logger.name] LEVEL: msg`
 
@@ -17,12 +18,10 @@ from __future__ import annotations
 
 import logging
 import logging.handlers
-import os
 import sys
 from pathlib import Path
 
-# Match the APP_DIR convention used elsewhere (license_client / data_sync_client)
-APP_DIR = os.environ.get("MK_APP_DIR_NAME", "QuantumTerminal")
+import app_paths
 
 _LOG_FORMAT = "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
 _DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -31,11 +30,8 @@ _FILE_MAX_BYTES = 50 * 1024 * 1024  # 50 MB hard cap per file as a backstop
 
 
 def _appdata_logs_dir() -> Path:
-    """Resolve %APPDATA%\\<APP_DIR>\\logs\\ (or ~/.<app_dir>/logs/ off-Windows)."""
-    appdata = os.environ.get("APPDATA", "")
-    if appdata:
-        return Path(appdata) / APP_DIR / "logs"
-    return Path.home() / f".{APP_DIR.lower()}" / "logs"
+    """Resolve <app-data dir>/logs/ (see app_paths)."""
+    return app_paths.app_data_dir() / "logs"
 
 
 def setup_logging(level: int = logging.INFO) -> Path:
