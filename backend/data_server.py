@@ -96,7 +96,7 @@ Responsibilities:
     2. WebSocket Broadcasting — push prices and state-change events to clients
     3. REST API — serve pre-computed data (cones, bands, anchors, probability field)
     4. File Watching — monitor JSON state files for changes, notify clients
-    5. Consumer Auth — JWT login/register via license_client proxy
+    5. No accounts — the commercial login/licence layer is not part of Quantum Terminal
     6. Data Sync — download pre-computed data from server via data_sync_client
 
 REMOVED from PRO (Rule C1 — no calculation triggers):
@@ -1108,15 +1108,6 @@ async def health():
         "label":  provider.label if provider else None,
         "connected": mt5_connected,
         "active_symbols": len(cfg_manager.get_active_universe()),
-    }
-
-    # License / auth — Quantum Terminal: always free
-    components["license"] = {
-        "status": "ok",
-        "user_email": "free@quantumterminal",
-        "subscription_status": "active",
-        "subscription_type": "free",
-        "offline": False,
     }
 
     # Sync status

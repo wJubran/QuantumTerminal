@@ -120,65 +120,18 @@ def consumer_gate(skip_sync: bool = False) -> dict:
 # 2. ROUTE WIRING
 # ============================================================
 
-# The one local "session": everything unlocked (the UI gates PRO features
-# on subscription_type == "pro"), never expires.
-LOCAL_SESSION = {
-    "status": "ok",
-    "authenticated": True,
-    "user_email": "free@quantumterminal",
-    "subscription_status": "active",
-    "subscription_type": "pro",
-    "subscription_expires_at": "",
-    "trial_expires_at": "",
-    "is_whitelist": False,
-    "offline": False,
-}
-
-
-def create_local_auth_router():
-    """Stand-in for the commercial build's licence server: the bundled UI's
-    login gate and tier checks get a permanent full-access local session."""
-    from fastapi import APIRouter
-    router = APIRouter(tags=["auth"])
-
-    @router.get("/api/auth/status")
-    async def auth_status():
-        return dict(LOCAL_SESSION)
-
-    @router.post("/api/auth/login")
-    async def auth_login():
-        # No accounts exist — whatever was typed in, continue locally.
-        return dict(LOCAL_SESSION)
-
-    @router.post("/api/auth/logout")
-    async def auth_logout():
-        return {"status": "ok"}
-
-    @router.get("/api/auth/checkout-urls")
-    async def checkout_urls():
-        return {"packages": []}
-
-    return router
-
-
 def wire_consumer_routes(app):
     """
     Wire consumer-specific FastAPI routes into the existing app.
     Call this AFTER app = FastAPI() in data_server.py.
 
     Adds:
-        /api/auth/*       — login, register, logout, status, refresh
         /api/sync/*       — sync status, cone/options data, staleness, refresh
         /api/consumer/*   — consumer-specific status endpoints
     """
     routes_added = []
 
-    # Auth routes — Quantum Terminal has no accounts or paywall, but the
-    # bundled UI still asks /api/auth/* at start-up (the login gate waits on
-    # it forever when it 404s) and for feature gating. Answer with a
-    # permanent local full-access session.
-    app.include_router(create_local_auth_router())
-    routes_added.append("auth")
+    # Auth routes — none: Quantum Terminal has no accounts or subscriptions.
 
     # Data sync routes
     try:
@@ -213,11 +166,6 @@ def wire_consumer_routes(app):
             "is_consumer": True,
             "routes_available": routes_added,
         }
-
-        # Auth status
-        status["authenticated"] = True
-        status["user_email"] = "free@quantumterminal"
-        status["subscription_status"] = "active"
 
         # Sync status
         try:
