@@ -20,7 +20,7 @@ FORBIDDEN = [re.compile(p, re.IGNORECASE) for p in [
 PRICE = re.compile(r"\$\s?(29|49|59|119)\b(?!\.\d)")
 
 SCANNED = ["frontend/src", "frontend/public", "frontend_build", "backend", "electron_shell", ".github",
-           "README.md", "README.ar.md", "CONTRIBUTING.md", "SECURITY.md", "social-preview.svg"]
+           "README.md", "README.ar.md", "CONTRIBUTING.md", "SECURITY.md", "CHANGELOG.md", "social-preview.svg"]
 TEXT_SUFFIXES = {".py", ".js", ".jsx", ".json", ".html", ".css", ".md", ".svg", ".txt", ".yml", ".ini"}
 
 

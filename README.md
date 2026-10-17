@@ -8,6 +8,7 @@
 
 **English** · [العربية](README.ar.md)
 
+[![Release](https://img.shields.io/github/v/release/wJubran/QuantumTerminal?color=ff6d00)](https://github.com/wJubran/QuantumTerminal/releases/latest)
 [![CI](https://github.com/wJubran/QuantumTerminal/actions/workflows/ci.yml/badge.svg)](https://github.com/wJubran/QuantumTerminal/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ebd59.svg)](LICENSE)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3796ff.svg)
@@ -203,7 +204,7 @@ in a native window. Package it with Electron Forge or electron-builder to distri
 - **CI** runs the tests on Linux and Windows with Python 3.10 and 3.12, rebuilds the UI to check that
   `frontend_build/` matches the source, and checks the Electron shell.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, and [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 
 ## Security
 
