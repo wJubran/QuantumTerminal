@@ -28,8 +28,12 @@ export default {
           ar: "Rithmic — بيانات أسواق العقود الآجلة (futures)، ويتطلب الحزمة الاختيارية async_rithmic.",
         },
         {
-          en: "Simulated market — started with --sim; see the previous article.",
-          ar: "السوق المحاكى — يُشغَّل بالخيار --sim، وتفاصيله في المقال السابق.",
+          en: "Yahoo Finance, Binance, OANDA, Alpaca and CSV files — picked in ⚙ Settings → DATA SOURCES; see \"Data sources: connect and configure\".",
+          ar: "Yahoo Finance وBinance وOANDA وAlpaca وملفات CSV — تُختار من ⚙ Settings ← DATA SOURCES، وتفاصيلها في مقال \"مصادر البيانات: الربط والإعداد\".",
+        },
+        {
+          en: "Simulated market — started with --sim; see \"Simulated market & paper trading\".",
+          ar: "السوق المحاكى — يُشغَّل بالخيار --sim، وتفاصيله في مقال \"السوق المحاكى والتداول الورقي\".",
         },
       ],
     },
@@ -39,6 +43,10 @@ export default {
         {
           en: "With MetaTrader 5 connected, orders from the order ticket go to your real MT5 account. They carry the magic number 777, so you can find them in the MT5 history. Try every workflow on a demo account or on the simulator first.",
           ar: "عند ربط MetaTrader 5، تذهب الأوامر من تذكرة الأوامر إلى حساب MT5 الحقيقي لديك. تحمل هذه الأوامر الرقم المميز (magic number) ‏777، لتتمكن من تمييزها في سجل MT5. جرّب كل طريقة عمل على حساب تجريبي أو على المحاكي أولاً.",
+        },
+        {
+          en: "Orders go to the execution account chosen in Settings → DATA SOURCES: MetaTrader 5, OANDA, the simulator, or the paper account on a source's live prices. Nothing is sent while LIVE TRADING is off in Settings → TRADING; the server refuses new orders too.",
+          ar: "تذهب الأوامر إلى حساب التنفيذ المختار في Settings ← DATA SOURCES: إما MetaTrader 5 أو OANDA أو المحاكي أو الـ paper account على الأسعار الحية لمصدر البيانات. ولا يُرسَل أي أمر ما دام LIVE TRADING متوقفاً في Settings ← TRADING، فالسيرفر نفسه يرفض الأوامر الجديدة أيضاً.",
         },
       ],
     },

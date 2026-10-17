@@ -8,6 +8,26 @@ Notable changes to Quantum Terminal. The format follows
 
 ### Added
 
+- **Five more data sources**, picked in *Settings → DATA SOURCES* (with TEST and USE buttons) while the
+  terminal runs, or with `python launcher.py --provider <type>`:
+  - **Yahoo Finance**: free, no account. Forex; metals, energy, grain, soft and livestock futures;
+    indices, stocks, ETFs and crypto. Some markets are delayed.
+  - **Binance**: crypto in real time, free, no account.
+  - **OANDA**: forex, metals, energy, grains and index CFDs, with order execution (a free practice
+    account works).
+  - **Alpaca**: US stocks and ETFs, including commodity ETFs, and crypto.
+  - **CSV files**: bars exported from MetaTrader 5, TradingView, NinjaTrader or anywhere else, for
+    offline analysis.
+- **Paper account on live prices.** Sources that only deliver prices trade on a paper account that
+  fills at their live bid/ask. Stop loss and take profit trigger on wicks, using the source's 1-minute
+  bars but never a price from before the order existed. RESET starts the account over.
+- Switching sources rebuilds the cones and bands from the new source's bars. The header names the
+  active source, for example `FEED ● YAHOO`.
+- API tokens and secrets stay on the computer: they are sent only to their source, and the browser
+  sees `••••••`. `OANDA_TOKEN`, `OANDA_ACCOUNT_ID`, `APCA_API_KEY_ID` and `APCA_API_SECRET_KEY` can be
+  used instead of the Settings panel.
+- Learning Center article *Data sources: connect and configure* (English and Arabic), and a *Data
+  sources* section in both READMEs, explaining how to set up each source and map its ticker names.
 - **Probability bands computed by the terminal** (`BANDS` on a chart, key **B**):
   - GBM, MJD and Bates bands that restart at every trading day's open, so they follow the price;
   - their width comes from the last 60 trading days, and the tails keep the cones' long-run shape;
@@ -21,6 +41,8 @@ Notable changes to Quantum Terminal. The format follows
 
 ### Changed
 
+- The LIVE TRADING switch is enforced by the server as well: `POST /api/orders` is refused while it is
+  off, as the order ticket already was. Closing positions and editing SL/TP still work.
 - Jumps are recognised relative to the volatility of their time, not one threshold for the whole year.
   After a lasting rise in volatility, the new regime's ordinary days are no longer treated as "jumps".
   This affects the MJD and Bates cones.

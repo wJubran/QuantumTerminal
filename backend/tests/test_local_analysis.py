@@ -196,6 +196,53 @@ def test_runner_never_overwrites_another_producers_files(tmp_path, provider):
     assert json.loads((tmp_path / "XYZ_quarterly_cones.json").read_text())["producer"] == runner.PRODUCER
 
 
+def test_switching_sources_drops_files_the_new_source_cannot_replace(tmp_path, provider):
+    provider.provider_type, provider.provider_id = "yahoo", "yahoo_default"
+    assert runner.update_ticker("ABC", provider, cache_dir=tmp_path, phases=("live",)) is True
+    theirs = {"producer": "data-center", "gbm_curr": {"median": [1, 2]}}
+    (tmp_path / "XYZ_cones.json").write_text(json.dumps(theirs))
+
+    outage = FakeProvider([])                     # the same source, without bars for a while
+    outage.provider_type, outage.provider_id = "yahoo", "yahoo_default"
+    assert runner.update_ticker("ABC", outage, cache_dir=tmp_path, phases=("live",)) is False
+    assert (tmp_path / "ABC_cones.json").exists()
+
+    other = FakeProvider([])                      # another source, which doesn't carry ABC or XYZ
+    other.provider_type, other.provider_id = "binance", "binance_default"
+    assert runner.update_ticker("ABC", other, cache_dir=tmp_path, phases=("live",)) is False
+    assert not list(tmp_path.glob("ABC_*.json"))
+    runner.update_ticker("XYZ", other, cache_dir=tmp_path, phases=("live",))
+    assert json.loads((tmp_path / "XYZ_cones.json").read_text()) == theirs     # not ours: kept
+
+
+def test_a_source_switch_starts_a_pass_at_once(monkeypatch):
+    import asyncio
+    phases = []
+
+    async def fake_pass(app_state, phase, broadcast_event):
+        phases.append(phase)
+        return []
+
+    monkeypatch.setattr(runner, "_pass", fake_pass)
+    monkeypatch.setattr(runner, "START_DELAY_SEC", 0)
+
+    async def main():
+        task = asyncio.create_task(runner.run_loop(object(), interval=3600))
+        for _ in range(500):
+            if len(phases) == 2:
+                break
+            await asyncio.sleep(0.01)
+        runner.request_pass()                     # Settings → DATA SOURCES → USE
+        for _ in range(500):
+            if len(phases) == 4:
+                break
+            await asyncio.sleep(0.01)
+        task.cancel()
+        return list(phases)
+
+    assert asyncio.run(main()) == ["live", "replay", "live", "replay"]
+
+
 def test_runner_can_be_turned_off(monkeypatch):
     monkeypatch.setenv("MK_LOCAL_ANALYSIS", "0")
     assert runner.create_local_analysis_task(object()) is None
