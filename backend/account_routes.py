@@ -1131,7 +1131,7 @@ def create_account_router(
                     }
                     await _notify("flow_calibration_error",
                                   f"Flow calibration FAILED for {canonical} — check flow_output/calibrate_{canonical}.log")
-                    log.error(f"Flow calibration failed for {canonical} (log: {cal_log_path})")
+                    log.error(f"Flow calibration failed for {canonical} ({tail})")
                     return
 
                 # Phase 2: Run flow_confirmation.py CLI diagnostic to validate.

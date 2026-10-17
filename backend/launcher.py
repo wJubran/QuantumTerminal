@@ -25,19 +25,37 @@ from pathlib import Path
 
 log = logging.getLogger("mk.launcher")
 
+
+def _resolve_frontend_dir(candidates) -> Path:
+    """Pick the React build to serve. MK_FRONTEND_DIR always wins; otherwise
+    the first candidate that contains an index.html (falls back to the first)."""
+    override = os.environ.get("MK_FRONTEND_DIR")
+    if override:
+        return Path(override).expanduser().resolve()
+    for c in candidates:
+        if (c / "index.html").exists():
+            return c
+    return candidates[0]
+
+
 # — Determine base paths (works for both dev and PyInstaller) —
 if getattr(sys, 'frozen', False):
     # Running as packaged .exe — everything is flat in _MEIPASS
     BASE_DIR = Path(sys._MEIPASS)
     EXE_DIR = Path(sys.executable).parent
     BACKEND_DIR = BASE_DIR          # PyInstaller bundles flat, no backend/ subfolder
-    FRONTEND_DIR = BASE_DIR / "frontend"
+    FRONTEND_DIR = _resolve_frontend_dir([BASE_DIR / "frontend"])
 else:
-    # Running as script (dev mode)
+    # Running as script (dev mode). Prefer a locally rebuilt UI
+    # (terminal_app/build) and fall back to the compiled build shipped
+    # in this repository (frontend_build/).
     BASE_DIR = Path(__file__).resolve().parent
     EXE_DIR = BASE_DIR
     BACKEND_DIR = BASE_DIR
-    FRONTEND_DIR = BASE_DIR.parent / "terminal_app" / "build"
+    FRONTEND_DIR = _resolve_frontend_dir([
+        BASE_DIR.parent / "terminal_app" / "build",
+        BASE_DIR.parent / "frontend_build",
+    ])
 
 PORT = int(os.environ.get("MK_PORT", "8502"))   # v2: Electron passes MK_PORT
 
@@ -136,7 +154,110 @@ def open_browser():
     webbrowser.open(f"http://127.0.0.1:{PORT}")
 
 
+def mount_frontend(app, frontend_dir: Path) -> bool:
+    """Serve the React build from `frontend_dir` on `app`. False if absent.
+
+    IMPORTANT: Use StaticFiles mount (not catch-all routes) so API routes
+    always take priority. The catch-all @app.get("/{path}") pattern causes
+    405 errors on PATCH/POST to /api/* endpoints.
+    """
+    if not (frontend_dir.exists() and (frontend_dir / "index.html").exists()):
+        return False
+
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import FileResponse
+    from starlette.middleware.base import BaseHTTPMiddleware
+
+    root = frontend_dir.resolve()
+
+    # Helper: serve index.html with no-cache headers so browser
+    # always fetches the latest after an update. JS/CSS files have
+    # content hashes in their filenames so they cache safely.
+    def _serve_index():
+        return FileResponse(
+            str(root / "index.html"),
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
+
+    # Serve /static/* assets (JS, CSS, images)
+    app.mount("/static", StaticFiles(directory=str(root / "static")), name="static")
+
+    # SPA middleware: for non-API, non-static GET requests that don't match
+    # a file, serve index.html. This replaces the old @app.get("/{full_path:path}")
+    # catch-all which caused 405 errors on API PATCH/POST requests.
+    class SPAMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            response = await call_next(request)
+
+            # If the API returned 404 and this is a GET request
+            # that doesn't target /api/ or /ws/, serve index.html
+            # (React client-side routing)
+            if (
+                response.status_code == 404
+                and request.method == "GET"
+                and not request.url.path.startswith("/api/")
+                and not request.url.path.startswith("/ws/")
+                and not request.url.path.startswith("/static/")
+            ):
+                # A real file in the build directory (sounds, manifest...).
+                # Resolved and confined to the build dir: "/../.." paths
+                # must not read arbitrary files off the disk.
+                file_path = (root / request.url.path.lstrip("/")).resolve()
+                if file_path.is_relative_to(root) and file_path.is_file():
+                    return FileResponse(str(file_path))
+                # Otherwise serve index.html for React Router
+                return _serve_index()
+
+            return response
+
+    app.add_middleware(SPAMiddleware)
+
+    # Root route — serve index.html
+    @app.get("/", include_in_schema=False)
+    async def serve_root():
+        return _serve_index()
+
+    # Favicon
+    favicon_path = root / "favicon.ico"
+    if favicon_path.exists():
+        @app.get("/favicon.ico", include_in_schema=False)
+        async def serve_favicon():
+            return FileResponse(str(favicon_path))
+
+    return True
+
+
+def _parse_args(argv=None):
+    """CLI flags are thin wrappers over the MK_* env vars, so the Electron
+    shell (env) and a terminal user (flags) configure the same knobs."""
+    import argparse
+    parser = argparse.ArgumentParser(description="Quantum Terminal launcher")
+    parser.add_argument("--port", type=int, help="HTTP port (env MK_PORT, default 8502)")
+    parser.add_argument("--no-browser", action="store_true",
+                        help="Don't open the system browser (env MK_NO_BROWSER=1)")
+    parser.add_argument("--sim", action="store_true",
+                        help="Use the built-in simulated market feed with paper "
+                             "trading - no broker needed (env MK_PROVIDER=sim)")
+    # parse_known_args: tolerate extra args injected by packagers / shells.
+    args, _unknown = parser.parse_known_args(argv)
+    return args
+
+
 def main():
+    global PORT
+    args = _parse_args()
+    if args.port:
+        PORT = args.port
+        os.environ["MK_PORT"] = str(PORT)
+    if args.no_browser:
+        os.environ["MK_NO_BROWSER"] = "1"
+    if args.sim:
+        os.environ["MK_PROVIDER"] = "sim"
+
     # v2 Phase D: persistent rotating log file under %APPDATA%\<APP_DIR>\logs\.
     #   Console behavior unchanged; file logging is additive.
     try:
@@ -148,7 +269,7 @@ def main():
 
     print()
     print("=" * 50)
-    print("  Quantum Terminal Consumer Terminal")
+    print("  Quantum Terminal")
     print("=" * 50)
     if _log_file:
         print(f"  Logs   : {_log_file}")
@@ -184,6 +305,8 @@ def main():
                 pass  # Read-only _internal — config found via sys.path instead
 
     print(f"  Server : http://127.0.0.1:{PORT}")
+    if os.environ.get("MK_PROVIDER", "").strip().lower() == "sim":
+        print("  Feed   : SIMULATED market data + paper trading (not real prices)")
     print(f"  Press Ctrl+C to stop")
     print("=" * 50)
     print()
@@ -196,72 +319,8 @@ def main():
     from data_server import app
 
     # Serve React build as static files (production mode)
-    # IMPORTANT: Use StaticFiles mount (not catch-all routes) so API routes
-    # always take priority. The catch-all @app.get("/{path}") pattern causes
-    # 405 errors on PATCH/POST to /api/* endpoints.
-    if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
-        from fastapi.staticfiles import StaticFiles
-        from fastapi.responses import FileResponse
-        from starlette.middleware.base import BaseHTTPMiddleware
-        from starlette.responses import Response as StarletteResponse
-
-        # Helper: serve index.html with no-cache headers so browser
-        # always fetches the latest after an update. JS/CSS files have
-        # content hashes in their filenames so they cache safely.
-        def _serve_index():
-            return FileResponse(
-                str(FRONTEND_DIR / "index.html"),
-                headers={
-                    "Cache-Control": "no-cache, no-store, must-revalidate",
-                    "Pragma": "no-cache",
-                    "Expires": "0",
-                },
-            )
-
-        # Serve /static/* assets (JS, CSS, images)
-        app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR / "static")), name="static")
-
-        # SPA middleware: for non-API, non-static GET requests that don't match
-        # a file, serve index.html. This replaces the old @app.get("/{full_path:path}")
-        # catch-all which caused 405 errors on API PATCH/POST requests.
-        class SPAMiddleware(BaseHTTPMiddleware):
-            async def dispatch(self, request, call_next):
-                response = await call_next(request)
-
-                # If the API returned 404 and this is a GET request
-                # that doesn't target /api/ or /ws/, serve index.html
-                # (React client-side routing)
-                if (
-                    response.status_code == 404
-                    and request.method == "GET"
-                    and not request.url.path.startswith("/api/")
-                    and not request.url.path.startswith("/ws/")
-                    and not request.url.path.startswith("/static/")
-                ):
-                    # Check if it's a real file in the build directory
-                    file_path = FRONTEND_DIR / request.url.path.lstrip("/")
-                    if file_path.exists() and file_path.is_file():
-                        return FileResponse(str(file_path))
-                    # Otherwise serve index.html for React Router
-                    return _serve_index()
-
-                return response
-
-        app.add_middleware(SPAMiddleware)
-
-        # Root route — serve index.html
-        @app.get("/", include_in_schema=False)
-        async def serve_root():
-            return _serve_index()
-
-        # Favicon
-        favicon_path = FRONTEND_DIR / "favicon.ico"
-        if favicon_path.exists():
-            @app.get("/favicon.ico", include_in_schema=False)
-            async def serve_favicon():
-                return FileResponse(str(favicon_path))
-
-        print("  Frontend: serving React build")
+    if mount_frontend(app, FRONTEND_DIR):
+        print(f"  Frontend: serving React build ({FRONTEND_DIR})")
     else:
         print("  Frontend: not found — use npm start for dev mode")
 
