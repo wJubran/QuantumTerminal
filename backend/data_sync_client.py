@@ -224,7 +224,9 @@ class StalenessInfo:
 
 def _read_config() -> configparser.ConfigParser:
     import platform as _plat
-    config = configparser.ConfigParser()
+    # Values are literal: "%APPDATA%" is a Windows-style path, not configparser
+    # interpolation (which rejected the built-in defaults when no ini exists).
+    config = configparser.ConfigParser(interpolation=None)
 
     search_paths = [
         PROJECT_ROOT / "consumer_config.ini",
