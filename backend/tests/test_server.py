@@ -58,6 +58,17 @@ def test_missing_data_server_is_reported_as_such(client):
     assert client.get("/api/regime/macro").status_code == 404
 
 
+def test_bands_replay_reads_the_analysis_cache(client):
+    from data_sync_client import _get_cache_dir
+    path = _get_cache_dir() / "EURUSD_bands_replay.json"
+    path.write_text('{"daily": {}}', encoding="utf-8")
+    try:
+        assert client.get("/api/bands_replay/EURUSD").json() == {"daily": {}}
+    finally:
+        path.unlink()
+    assert client.get("/api/bands_replay/EURUSD").status_code == 404
+
+
 def test_version_endpoint_offline(client):
     v = client.get("/api/version").json()   # MK_UPDATE_CHECK=0 in the test env
     assert v["current"] == v["latest"] and v["update_available"] is False

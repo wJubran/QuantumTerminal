@@ -16,12 +16,12 @@ from typing import Any
 from urllib.parse import unquote
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 import config_manager
 
 
-log = logging.getLogger("mk.chart_presets_routes")
+log = logging.getLogger("qt.chart_presets_routes")
 
 # Pydantic body model — accepts the full chart-style shape but is permissive
 # on field presence so future shape changes don't break the API.
@@ -34,8 +34,7 @@ class ChartStyleIn(BaseModel):
     marketCloseSeparator: dict | None = None
     rthSeparator: dict | None = None
 
-    class Config:
-        extra = "allow"   # forward-compat: ignore unknown keys gracefully
+    model_config = ConfigDict(extra="allow")   # forward-compat: ignore unknown keys gracefully
 
 
 _RESERVED_NAMES = {"defaults", "default"}

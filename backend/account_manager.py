@@ -51,7 +51,7 @@ from pathlib import Path
 #      trades counted as today and vice versa. v4 detects the broker
 #      offset from a recent tick (round to whole hours) and converts
 #      d.time → real-UTC before comparison.
-log = logging.getLogger("mk.account_manager")
+log = logging.getLogger("qt.account_manager")
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 

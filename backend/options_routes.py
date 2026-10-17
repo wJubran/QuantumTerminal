@@ -19,7 +19,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 
-log = logging.getLogger("mk.options_routes")
+log = logging.getLogger("qt.options_routes")
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 

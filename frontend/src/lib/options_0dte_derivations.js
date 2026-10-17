@@ -30,7 +30,7 @@
 // payload, and re-shipping classified composites would just duplicate
 // the same data with a second surface that can drift.
 //
-// SOURCE OF TRUTH: D:/MK_DATA_CENTER/QUANT CALCULATION MODULES/options_engine.py
+// SOURCE OF TRUTH: the data producer's options_engine.py (not part of this repository)
 //   compute_structural_integrity → :908+
 //   compute_volatility_gravity   → :1086+
 //

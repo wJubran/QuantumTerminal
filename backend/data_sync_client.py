@@ -141,7 +141,7 @@ from typing import Optional, Dict, List, Any, Tuple
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 
-log = logging.getLogger("mk.data_sync")
+log = logging.getLogger("qt.data_sync")
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
