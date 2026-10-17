@@ -237,17 +237,17 @@ electron-builder to distribute it.
 | **Desktop app** | Optional Electron shell that starts the backend and opens the terminal in its own window |
 | **Safety** | Trading switch off by default and enforced by the server, local-only server, protection against cross-site requests and DNS rebinding, API keys never sent back to the browser |
 
-### Analysis overlays — need pre-computed data
+### Options levels — from public option chains
 
 | Panel | What it shows |
 |---|---|
-| **Options Quant** | Gamma exposure (GEX), call/put walls, max pain and dealer positioning |
+| **Options Quant** | Gamma exposure (GEX), the gamma flip, call/put walls, max pain, expected move, IV skew, dealer scenarios and the level ladders |
 | **Options Cockpit** | The options view in Stress Lab |
 
-These panels read pre-computed analysis files from the same local cache the cones and bands are written
-to. **This repository does not produce them yet**, so out of the box they stay empty, and the header
-shows `SERVER ○ NONE` because no data server is configured. Extending the local engine to options
-levels is the top item on the [roadmap](#roadmap).
+The terminal computes these itself for US500, USTEC, XAUUSD, XAGUSD and XTIUSD from the SPY, QQQ, GLD,
+SLV and USO option chains (see [How the Options Quant page is built](#how-the-options-quant-page-is-built)).
+Three parts still need data the repository does not produce: the Heat Map surface, the Retail Trap card
+and the Vanna/Charm card.
 
 ## Data sources
 
@@ -485,6 +485,32 @@ The **MONEY FLOW** page is rebuilt every hour from daily ETF prices and volumes 
 A ticker that can't be downloaded is left out rather than shown as flat. The page needs internet
 access to `query1.finance.yahoo.com`, and the world map's shapes come from `cdn.jsdelivr.net`.
 
+## How the Options Quant page is built
+
+Every 15 minutes while New York trades (every 2 hours otherwise) the terminal downloads the option chains
+of SPY, QQQ, GLD, SLV and USO from Yahoo Finance (yfinance, no key; Yahoo's option quotes are about 15
+minutes delayed) and writes `{T}_options.json` for US500, USTEC, XAUUSD, XAGUSD and XTIUSD, when they are
+in your universe and your data source has a price for them.
+
+- **Expiries:** today's (0-DTE, until 16:00 New York), the next eight after today (the swing view) and the
+  next two monthly expiries.
+- **Implied vols:** Yahoo's, cleaned of out-of-range values and of its failed solves, then one smile per
+  expiry from the out-of-the-money side.
+- **GEX:** dealers are assumed long the calls and short the puts customers trade. GEX is in dollars per
+  1% move. The **flip** is the price where total swing GEX changes sign. The **call wall** is the strike
+  above spot with the most call gamma, the **put wall** the strike below spot with the most put gamma, and
+  **HVL** the strike with the most gamma overall. **Max pain** and the **expected move** (the ATM
+  straddle) use the first expiry after today.
+- **Dealer delta and scenarios** are in shares of the ETF: how much the dealers' hedge would change if
+  price moved 0.5% or 1% either way. The asymmetry is their selling over their buying across ±1%.
+- **Structural Integrity and Volatility Gravity** use the UI's own formulas
+  (`frontend/src/lib/options_0dte_derivations.js`), ported to Python.
+- **Price space:** every level is multiplied by your feed's price over the ETF's price, both taken at the
+  time of the ETF quote, so the lines sit on your chart (for example SPY 680 → US500 6,800).
+
+It needs internet access to `query1.finance.yahoo.com` and `query2.finance.yahoo.com`. When a download
+fails the last file stays. These levels describe positioning; they are not trade signals on their own.
+
 ## How it works
 
 ```mermaid
@@ -631,7 +657,7 @@ Finance may be delayed.
 - **الأمان:** السيرفر محلي فقط، ولا تستطيع أي صفحة ويب تزورها إرسال أوامر عبر منصتك، ومفاتيح الـ API لا
   تغادر جهازك إلا إلى مصدرها.
 
-لوحة Options Quant تحتاج بيانات تحليل محسوبة مسبقاً لا ينتجها المستودع بعد، فتبقى فارغة حالياً. التفاصيل في [النسخة العربية الكاملة](README.ar.md).
+تحسب المنصة مستويات Options Quant بنفسها من سلاسل خيارات SPY وQQQ وGLD وSLV وUSO العامة، ما عدا الخريطة الحرارية وبطاقتي Retail Trap وVanna/Charm. التفاصيل في [النسخة العربية الكاملة](README.ar.md).
 
 ### المتطلبات
 

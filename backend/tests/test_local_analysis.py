@@ -239,8 +239,12 @@ def test_a_source_switch_starts_a_pass_at_once(monkeypatch):
 
     monkeypatch.setattr(runner, "_fundamental_pass", fake_fundamental)
     monkeypatch.setattr(runner, "_money_flow_pass", fake_money_flow)
+
+    async def fake_options(app_state, broadcast_event):
+        phases.append("options")
+    monkeypatch.setattr(runner, "_options_pass", fake_options)
     monkeypatch.setattr(runner, "START_DELAY_SEC", 0)
-    one_pass = ["live", "regime", "macro", "fundamental", "money_flow", "replay"]
+    one_pass = ["live", "regime", "macro", "fundamental", "money_flow", "options", "replay"]
 
     async def main():
         task = asyncio.create_task(runner.run_loop(object(), interval=3600))
