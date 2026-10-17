@@ -87,6 +87,7 @@ def test_every_module_resolves_the_same_app_data_dir(os_layout, launched_by):
     import config_manager
     import launcher
     import logging_setup
+    from providers.sim_provider import SimProvider
 
     app_dir = app_paths.app_data_dir()
     cache = app_dir / "cache"
@@ -100,6 +101,7 @@ def test_every_module_resolves_the_same_app_data_dir(os_layout, launched_by):
     assert logging_setup._appdata_logs_dir() == app_dir / "logs"
     assert launcher._get_appdata_base() == app_dir
     assert launcher.ensure_appdata() == app_dir
+    assert SimProvider._resolve_state_path({}) == app_dir / "sim_paper_account.json"
     assert cache.is_dir()
 
 
