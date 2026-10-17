@@ -1,5 +1,9 @@
-// version: v3
+// version: v4
 // LearningCenter.jsx — foundation.
+//
+// v4 — Bilingual "Quantum Terminal" guide category (about, install,
+//      simulator, data & security). First visit opens in Arabic when the
+//      browser language is Arabic; the EN/AR toggle choice is remembered.
 //
 // Layout: top bar (search + EN/AR toggle) · left nav (categories + articles)
 // · main (selected article).
@@ -426,7 +430,12 @@ function DisclaimerModal({ onDismiss }) {
 // ── Top-level component ───────────────────────────────────────────────────
 export default function LearningCenter() {
   const [lang, setLang] = useState(() => {
-    try { return localStorage.getItem(LANG_KEY) || "en"; } catch { return "en"; }
+    try {
+      const saved = localStorage.getItem(LANG_KEY);
+      if (saved) return saved;
+    } catch { /* private mode */ }
+    const browser = (typeof navigator !== "undefined" && navigator.language) || "";
+    return browser.toLowerCase().startsWith("ar") ? "ar" : "en";
   });
   const [selectedId, setSelectedId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");

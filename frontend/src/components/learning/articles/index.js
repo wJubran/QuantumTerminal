@@ -2,6 +2,10 @@
 // pushing into the ARTICLES array — everything else (nav, search, routing)
 // picks them up automatically.
 
+import aboutQuantumTerminal from "./project/about";
+import gettingStarted       from "./project/getting_started";
+import simulatedMarket      from "./project/simulated_market";
+import dataAndSecurity      from "./project/data_and_security";
 import gbm from "./quant/gbm";
 import gex from "./quant/gex";
 import coneConstruction from "./quant/cone_construction";
@@ -16,6 +20,10 @@ import tailFade      from "./setups/tail_fade";
 import shortcutsReference from "./shortcuts/shortcuts";  // Keyboard & Mouse Shortcuts (last)
 
 export const ARTICLES = [
+  aboutQuantumTerminal,
+  gettingStarted,
+  simulatedMarket,
+  dataAndSecurity,
   gbm,
   coneConstruction,
   coneModels,
