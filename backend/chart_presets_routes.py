@@ -16,7 +16,7 @@ from typing import Any
 from urllib.parse import unquote
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 import config_manager
 
@@ -34,8 +34,7 @@ class ChartStyleIn(BaseModel):
     marketCloseSeparator: dict | None = None
     rthSeparator: dict | None = None
 
-    class Config:
-        extra = "allow"   # forward-compat: ignore unknown keys gracefully
+    model_config = ConfigDict(extra="allow")   # forward-compat: ignore unknown keys gracefully
 
 
 _RESERVED_NAMES = {"defaults", "default"}

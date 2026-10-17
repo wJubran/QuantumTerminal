@@ -20,7 +20,7 @@ from typing import Any
 from urllib.parse import unquote
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 import config_manager
 
@@ -36,8 +36,7 @@ class ChartTemplateIn(BaseModel):
     config: dict | None = None
     savedAt: str | None = None
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 _RESERVED_NAMES = {"defaults", "default"}
