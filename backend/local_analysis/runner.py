@@ -12,6 +12,10 @@ Replay page work without a data server.
       replay   {T}_historical_cones.json, {T}_bands_replay.json (Replay page)
 - Files are stamped "producer": "quantum-terminal-local". A file written by
   any other producer is never overwritten.
+- The data source is part of each file's signature. After a switch
+  (Settings → DATA SOURCES) a pass runs at once and rebuilds every ticker
+  from the new source; our files for a ticker the new source doesn't carry
+  are removed, so no chart shows analysis made from other prices.
 - MK_LOCAL_ANALYSIS=0 turns it off.
 
 v2 — bands, the Replay page's files, eight quarterly anchors with
@@ -38,6 +42,7 @@ PRODUCER = "quantum-terminal-local"
 ENGINE_VERSION = 2
 DAILY_BARS = 1200           # ~4.5 years of weekdays, ~3.3 of a 7-day calendar: 8 quarters + a year of estimation
 CHECK_INTERVAL_SEC = 300
+START_DELAY_SEC = 3         # let the provider finish connecting
 
 # kind → file name, in-memory store of the sync client (None: its route reads the disk)
 FILES = {
@@ -54,6 +59,8 @@ PHASES = {
 
 # (ticker, phase) → signature of the last build written (or found up to date) this run
 _built: Dict[Tuple[str, str], str] = {}
+# Set to start the next pass now instead of after CHECK_INTERVAL_SEC.
+_wake: Optional[asyncio.Event] = None
 
 
 def enabled() -> bool:
@@ -118,10 +125,14 @@ def update_ticker(ticker: str, provider, cache_dir: Optional[Path] = None, force
     True when a file was written."""
     ticker = ticker.upper()
     cache_dir = cache_dir or _cache_dir()
+    # The source is part of the signature: switching data sources rebuilds
+    # the files even on the same day.
+    source_id = f"{getattr(provider, 'provider_type', '?')}:{getattr(provider, 'provider_id', '?')}"
     latest = cones.normalize(provider.get_bars(ticker, "D1", 2) or [])
     if not latest:
+        _discard_other_sources(ticker, cache_dir, source_id, phases)
         return False
-    signature = f"v{ENGINE_VERSION}|{latest[-1].time.isoformat()}"
+    signature = f"v{ENGINE_VERSION}|{source_id}|{latest[-1].time.isoformat()}"
     bars = None
     wrote = False
     for phase in phases:
@@ -167,6 +178,48 @@ def update_ticker(ticker: str, provider, cache_dir: Optional[Path] = None, force
     return wrote
 
 
+def _discard_other_sources(ticker: str, cache_dir: Path, source_id: str, phases: Sequence[str]) -> None:
+    """The source has no bars for this ticker: remove our files for it that
+    were built from another source's prices. Files of other producers, and
+    ours from this same source (a passing outage), are kept."""
+    removed = []
+    for phase in phases:
+        for kind in PHASES[phase]:
+            path = cache_dir / FILES[kind][0].format(T=ticker)
+            existing = _read(path)
+            if not existing or existing.get("producer") != PRODUCER:
+                continue
+            if f"|{source_id}|" in str(existing.get("signature", "")):
+                continue
+            try:
+                path.unlink()
+            except OSError:
+                continue
+            _forget(ticker, kind)
+            _built.pop((ticker, phase), None)
+            removed.append(kind)
+    if removed:
+        log.info(f"{ticker}: {', '.join(removed)} removed (built from another data source; "
+                 f"this one has no bars for {ticker})")
+
+
+def _forget(ticker: str, kind: str) -> None:
+    store = FILES[kind][1]
+    if store is None:
+        return
+    try:
+        from data_sync_client import get_sync_client
+        get_sync_client()._get_store(store).pop(ticker, None)
+    except Exception:
+        pass
+
+
+def request_pass() -> None:
+    """Start the next pass now: the data source changed."""
+    if _wake is not None:
+        _wake.set()
+
+
 def _remember(ticker: str, kind: str, payload: dict) -> None:
     """Hand the fresh payload to the sync client's in-memory store so the
     routes serve it immediately (the cache watcher may be disabled)."""
@@ -197,6 +250,8 @@ async def _pass(app_state, phase: str, broadcast_event: Optional[Callable]) -> l
         return []
     updated = []
     for ticker in cfg.get_active_universe():
+        if getattr(app_state, "provider", None) is not provider:
+            break                       # the data source changed: the next pass starts at once
         try:
             if await asyncio.to_thread(update_ticker, ticker, provider, None, False, (phase,)):
                 updated.append(ticker)
@@ -215,12 +270,18 @@ async def _pass(app_state, phase: str, broadcast_event: Optional[Callable]) -> l
 
 async def run_loop(app_state, broadcast_event: Optional[Callable] = None,
                    interval: float = CHECK_INTERVAL_SEC) -> None:
-    await asyncio.sleep(3)              # let the provider finish connecting
+    global _wake
+    _wake = asyncio.Event()
+    await asyncio.sleep(START_DELAY_SEC)
     while True:
+        _wake.clear()
         if await _pass(app_state, "live", broadcast_event):
             _pulse_room_rebuild()
         await _pass(app_state, "replay", broadcast_event)
-        await asyncio.sleep(interval)
+        try:
+            await asyncio.wait_for(_wake.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            pass
 
 
 def create_local_analysis_task(app_state, broadcast_event: Optional[Callable] = None):

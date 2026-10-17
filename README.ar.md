@@ -51,8 +51,10 @@ python launcher.py --sim
 <div dir="rtl">
 
 تُفتح المنصة في متصفحك على العنوان **http://127.0.0.1:8502**. لا تسجيل حساب، ولا مفتاح ترخيص، ولا
-اشتراك مدفوع. هل أنت جديد على Python، أو تريد أسعاراً حقيقية من MetaTrader 5؟ اتبع
-[الدليل خطوة بخطوة](#التثبيت-والتشغيل-خطوة-بخطوة) أدناه.
+اشتراك مدفوع. ولأسعار حية بدون وسيط، شغّلها بالأمر <code dir="ltr">python launcher.py --provider yahoo</code>
+(العملات والمعادن والطاقة والحبوب والمؤشرات والعملات الرقمية) أو بالخيار <code dir="ltr">--provider binance</code>
+(العملات الرقمية)، والتفاصيل في [مصادر البيانات](#مصادر-البيانات). هل أنت جديد على Python، أو تريد
+MetaTrader 5؟ اتبع [الدليل خطوة بخطوة](#التثبيت-والتشغيل-خطوة-بخطوة) أدناه.
 
 ## المتطلبات
 
@@ -63,8 +65,8 @@ python launcher.py --sim
 | **الذاكرة** | ذاكرة بسعة 4 غيغابايت | الـ backend نفسه يستهلك نحو 150 ميغابايت |
 | **مساحة القرص** | نحو 1 غيغابايت فارغة | حزم Python تأخذ نحو 500 ميغابايت |
 | **المتصفح** | نسخة حديثة من Chrome أو Edge أو Firefox أو Safari | أو استخدم تطبيق سطح المكتب بدلاً منه |
-| **الإنترنت** | للتثبيت، ثم فقط لـ MetaTrader 5 والتحقق من التحديثات | السوق المحاكى يعمل دون إنترنت |
-| **MetaTrader 5** ‏(اختياري) | منصة MT5 من وسيطك، مع تسجيل الدخول إلى حساب (الحساب التجريبي يكفي) | على Windows فقط، ومطلوبة للأسعار الحقيقية والأوامر الحية |
+| **الإنترنت** | للتثبيت، ثم لمصادر البيانات الحية والتحقق من التحديثات | السوق المحاكى وملفات CSV تعمل دون إنترنت |
+| **MetaTrader 5** ‏(اختياري) | منصة MT5 من وسيطك، مع تسجيل الدخول إلى حساب (الحساب التجريبي يكفي) | على Windows فقط، وهي إحدى طرق الحصول على أسعار حقيقية وإرسال أوامر حية، والطرق الأخرى في [مصادر البيانات](#مصادر-البيانات) |
 | **Node.js** ‏(اختياري) | الإصدار 20 أو أحدث | فقط لتطبيق سطح المكتب أو لإعادة بناء الواجهة |
 | **Git** ‏(اختياري) | أي إصدار | أو حمّل الكود كملف ZIP |
 
@@ -146,6 +148,20 @@ python launcher.py --sim
 
 <div dir="rtl">
 
+**على أسعار حية، بدون وسيط** (أي نظام، ويكفي الاتصال بالإنترنت):
+
+</div>
+
+```bash
+python launcher.py --provider yahoo      # forex, metals, energy, grains, indices, crypto
+python launcher.py --provider binance    # crypto, in real time
+```
+
+<div dir="rtl">
+
+بعدها تذهب الأوامر إلى حساب ورقي ينفّذها بتلك الأسعار الحية. أما OANDA وAlpaca وملفات CSV فتُعدّ من
+*الإعدادات ⚙ ← DATA SOURCES*، والتفاصيل في [مصادر البيانات](#مصادر-البيانات).
+
 **مع MetaTrader 5** (على Windows):
 
 1. ثبّت MetaTrader 5 من وسيطك وسجّل الدخول إلى حسابك (الحساب التجريبي يكفي).
@@ -165,8 +181,10 @@ python launcher.py --sim
 
 - **الـ cones:** على الشارت افتح السهم ▾ بجانب **CONES** واختر DAILY أو WEEKLY أو MONTHLY أو QUARTERLY،
   ومنه أيضاً **BATES** لعرض نموذج Bates. في المرة الأولى تكون جاهزة بعد التشغيل بنحو 30 ثانية.
-- **التداول:** الأوامر محظورة إلى أن تفعّل *الإعدادات ⚙ ← TRADING ← LIVE TRADING*. وفي المحاكي يفتح هذا
-  المفتاح الحساب الورقي فقط (100,000 دولار برافعة 1:100).
+- **التداول:** الأوامر محظورة إلى أن تفعّل *الإعدادات ⚙ ← TRADING ← LIVE TRADING*. وفي المحاكي، وفي
+  المصادر التي تقدّم الأسعار فقط، يفتح هذا المفتاح الحساب الورقي فقط (100,000 دولار برافعة 1:100).
+- **مصدر البيانات:** من *الإعدادات ⚙ ← DATA SOURCES* تنتقل بين MetaTrader 5 وYahoo Finance وBinance وOANDA
+  وAlpaca وملفات CSV والمحاكي أثناء عمل المنصة، وتتذكر المنصة اختيارك.
 - **مركز التعلم:** تبويب **LEARN** يشرح كل صفحة وكل نموذج، بالعربية والإنجليزية.
 
 ### 7. الإيقاف وإعادة التشغيل والتحديث
@@ -209,6 +227,9 @@ npm start              # or: npm run start:sim
 | MetaTrader 5 يرفض الأوامر لأن التداول الآلي معطّل | فعّل **Algo Trading** في MetaTrader 5 |
 | لم يُفتح المتصفح، أو بقيت الصفحة فارغة | افتح http://127.0.0.1:8502 بنفسك، وراجع ملف السجل الذي طبعه المشغّل |
 | لا تظهر الـ cones على الشارت | انتظر نحو 30 ثانية بعد التشغيل الأول، ثم فعّلها من السهم ▾ بجانب **CONES** |
+| رمز يبقى فارغاً على Yahoo Finance أو OANDA أو Binance أو Alpaca | المصدر يعرفه باسم آخر: اضبط له broker symbol من *الإعدادات ⚙ ← UNIVERSE* (راجع [أسماء الرموز](#أسماء-الرموز)) |
+| زر **TEST** في DATA SOURCES يُظهر الخطأ 401 أو 403 | الـ token أو المفتاح خاطئ أو منتهي الصلاحية، أو أنك تستخدم token من practice على live (أو العكس) |
+| زر **TEST** لا يصل إلى المصدر | اسمح بعنوانه في جدار الحماية أو الـ proxy: <code dir="ltr">query1.finance.yahoo.com</code> أو <code dir="ltr">api.binance.com</code> أو <code dir="ltr">api-fxpractice.oanda.com</code> (و<code dir="ltr">api-fxtrade.oanda.com</code> للحساب الحقيقي) أو <code dir="ltr">data.alpaca.markets</code> |
 
 ## المزايا
 
@@ -223,11 +244,12 @@ npm start              # or: npm run start:sim
 | **شارت حي** | مكتبة TradingView Lightweight Charts من M1 إلى D1، وعدة شارتات في تبويبات، وأدوات رسم، وقوالب للشارت، وقراءة السعر والوقت بالـ crosshair، وساعة عالمية مع جلسات التداول |
 | **إدخال الأوامر** | أوامر market وlimit وstop مع stop loss وtake profit، ومعاينة فورية للمخاطرة والعائد بالمبلغ وبالنسبة من الرصيد |
 | **الصفقات** | الصفقات المفتوحة مع المخاطرة والعائد والربح/الخسارة؛ اسحب خطوط SL/TP على الشارت، أو عدّل وأغلق من الجدول؛ وشريط يعرض تعرّض الحساب |
-| **مصادر البيانات** | منصة MetaTrader 5 (أسعار حية وتنفيذ أوامر)، وبيانات Rithmic للعقود الآجلة (تحتاج الحزمة الاختيارية async_rithmic) |
+| **مصادر البيانات** | MetaTrader 5 وYahoo Finance وBinance وOANDA وAlpaca وملفات CSV، وبيانات Rithmic للعقود الآجلة (تحتاج الحزمة الاختيارية async_rithmic)، مع التبديل بينها أثناء عمل المنصة ([التفاصيل](#مصادر-البيانات)) |
+| **التداول الورقي على أسعار حية** | تدرّب على أي مصدر بيانات: حساب ورقي ينفّذ أوامرك بأسعار bid وask الحية لذلك المصدر، مع SL/TP تُنفَّذ عند لمس ذيل الشمعة |
 | **السوق المحاكى** | أسعار من نموذج Bates ‏(stochastic volatility + jumps) بإيقاع يومي واقعي، متسقة بين الأُطر الزمنية وقابلة للتكرار من الـ seed نفسه؛ وحساب ورقي مع فحص الهامش، وأوامر SL/TP تُنفَّذ عند لمس ذيل الشمعة (wick) |
 | **مركز التعلم** | دليل ثنائي اللغة (العربية / English) للمنصة وللنماذج الكمية (GBM وMJD وBates وGEX) ولأنواع الصفقات واختصارات لوحة المفاتيح |
 | **تطبيق سطح المكتب** | غلاف Electron اختياري يشغّل الـ backend ويعرض المنصة في نافذة مستقلة |
-| **الأمان** | مفتاح التداول مُطفأ افتراضياً، والسيرفر محلي فقط، مع حماية من الطلبات القادمة من مواقع أخرى ومن هجمات DNS rebinding |
+| **الأمان** | مفتاح التداول مُطفأ افتراضياً ويفرضه السيرفر أيضاً، والسيرفر محلي فقط، مع حماية من الطلبات القادمة من مواقع أخرى ومن هجمات DNS rebinding، ومفاتيح الـ API لا تعود أبداً إلى المتصفح |
 
 ### طبقات التحليل — تحتاج بيانات محسوبة مسبقاً
 
@@ -242,6 +264,112 @@ npm start              # or: npm run start:sim
 الـ cones والـ bands. **هذا المستودع لا ينتج هذه الملفات بعد**، لذلك تبقى هذه اللوحات فارغة بعد التثبيت،
 ويظهر في أعلى المنصة <code dir="ltr">SERVER ○ NONE</code> لأنه لا يوجد سيرفر بيانات مُعدّ. توسيع المحرك
 المحلي ليشمل الـ regimes ومستويات الخيارات وصفحات الاقتصاد الكلي هو أول بند في [خطة التطوير](#خطة-التطوير).
+
+## مصادر البيانات
+
+يمكن أن تأتي الأسعار من سبعة مصادر. اختر المصدر من *الإعدادات ⚙ ← DATA SOURCES* أثناء عمل المنصة
+(بالأزرار **SETTINGS** و**TEST** و**USE**)، أو شغّل المنصة بالأمر
+<code dir="ltr">python launcher.py --provider &lt;type&gt;</code>. يستقبل MetaTrader 5 وOANDA أوامرك أيضاً،
+أما بقية المصادر فتقدّم الأسعار فقط، لذلك تُنفَّذ أوامرها على **الحساب الورقي** (paper account) بأسعار bid
+وask الحية لذلك المصدر.
+
+| المصدر | <code dir="ltr">--provider</code> | الأسواق | الأسعار | المطلوب | تذهب الأوامر إلى |
+|---|---|---|---|---|---|
+| **MetaTrader 5** | <code dir="ltr">mt5</code> | كل ما يقدّمه وسيطك | لحظية | Windows ومنصة MT5 وحساب لدى وسيط (الحساب التجريبي يكفي) | MT5 |
+| **OANDA** | <code dir="ltr">oanda</code> | العملات؛ والذهب والفضة والبلاتين والنفط والغاز الطبيعي والنحاس والذرة والقمح وفول الصويا والسكر؛ ومؤشرات CFD | لحظية | حساب practice مجاني و API token | OANDA |
+| **Yahoo Finance** | <code dir="ltr">yahoo</code> | العملات؛ وعقود futures للمعادن والطاقة والحبوب والسلع الطرية والمواشي؛ والمؤشرات والأسهم وصناديق ETF والعملات الرقمية | متأخرة في بعض الأسواق (نحو 10 دقائق للـ futures) | لا شيء: مجاني وبدون حساب | الحساب الورقي |
+| **Binance** | <code dir="ltr">binance</code> | العملات الرقمية | لحظية | لا شيء: مجاني وبدون حساب | الحساب الورقي |
+| **Alpaca** | <code dir="ltr">alpaca</code> | الأسهم وصناديق ETF الأمريكية (ومنها GLD وSLV وUSO وUNG وCPER)، والعملات الرقمية | لحظية (IEX) | حساب مجاني و API key | الحساب الورقي |
+| **ملفات CSV** | <code dir="ltr">csv</code> | أي أداة تملك شموعها | من الملفات | ملفات في مجلد | الحساب الورقي |
+| **السوق المحاكى** | <code dir="ltr">sim</code> | الرموز الافتراضية بأسعار اصطناعية | مولَّدة | لا شيء، ويعمل دون إنترنت | الحساب الورقي للمحاكي |
+
+عند التبديل تُعاد تحميل الشارتات، وتُبنى الـ cones والـ bands من جديد من الشموع اليومية للمصدر الجديد خلال
+دقيقة أو دقيقتين. ويظهر المصدر النشط في أعلى المنصة: <code dir="ltr">MT5 ● LINKED</code> أو
+<code dir="ltr">FEED ● YAHOO</code> أو <code dir="ltr">FEED ● BINANCE</code> وهكذا.
+
+### إعداد كل مصدر
+
+**Yahoo Finance:** لا يحتاج أي إعداد، وتتحدث أسعاره كل 30 ثانية (*Quote refresh*)، ويمكن تقليل المدة مع خطر
+تجاوز حدود الطلبات لدى Yahoo. والسعر فيه هو سعر آخر صفقة، لذلك تُنفَّذ أوامر الحساب الورقي عليه دون spread.
+المعادن والطاقة والمؤشرات الأمريكية تُعرض كعقود futures الأقرب (الذهب هو <code dir="ltr">GC=F</code>)، لذلك
+تختلف مستوياتها قليلاً عن أسعار spot أو CFD. والتاريخ المتاح نحو 7 أيام لشموع الدقيقة، و60 يوماً لشموع 5 إلى
+30 دقيقة، وسنتان لشموع الساعة، وعقود من الشموع اليومية.
+
+**Binance:** لا يحتاج أي إعداد. يُقرأ <code dir="ltr">BTCUSD</code> على أنه <code dir="ltr">BTCUSDT</code>،
+ويمكنك تغيير *Quote asset* إلى USDC أو FDUSD. وإذا لم يكن <code dir="ltr">api.binance.com</code> متاحاً في
+بلدك، كما في الولايات المتحدة، فاختر في *API address* العنوان <code dir="ltr">https://api.binance.us</code>
+أو عنوان بيانات السوق فقط <code dir="ltr">https://data-api.binance.vision</code>.
+
+**OANDA:**
+
+1. افتح حساباً تجريبياً (practice) مجانياً في [oanda.com](https://www.oanda.com).
+2. من لوحة OANDA افتح *My Account ← Manage API Access* وأنشئ token.
+3. من *الإعدادات ⚙ ← DATA SOURCES ← OANDA ← SETTINGS* اختر البيئة <code dir="ltr">practice</code>، والصق
+   الـ token، واترك *Account ID* فارغاً لاستخدام حسابك الأول. ثم اضغط **SAVE** ثم **TEST** ثم **USE**.
+
+بعدها تذهب الأوامر إلى حساب OANDA نفسه بمجرد تفعيل LIVE TRADING. والشموع اليومية تبدأ عند إغلاق نيويورك
+الساعة 17:00، كما عند وسطاء الفوركس على MetaTrader 5.
+
+**Alpaca:**
+
+1. أنشئ حساباً مجانياً في [alpaca.markets](https://alpaca.markets)، ويكفي حساب paper فقط.
+2. من لوحة التحكم أنشئ API key، وانسخ الـ key ID والـ secret. الـ secret يظهر مرة واحدة فقط.
+3. الصقهما في *الإعدادات ⚙ ← DATA SOURCES ← Alpaca ← SETTINGS*. الـ *Feed* المسمّى
+   <code dir="ltr">iex</code> مجاني، أما <code dir="ltr">sip</code> فيغطي كل البورصات الأمريكية ويحتاج
+   اشتراكاً مدفوعاً. ثم اضغط **SAVE** ثم **TEST** ثم **USE**.
+
+**ملفات CSV:** ضع الملفات في مجلد CSV، وهو افتراضياً المجلد <code dir="ltr">csv</code> داخل مجلد
+<code dir="ltr">AppData:</code>، وسمّها مثل <code dir="ltr">XAUUSD_M15.csv</code> و<code dir="ltr">XAUUSD_D1.csv</code>
+أو <code dir="ltr">XAUUSD.csv</code> فقط. وتُعرف الأعمدة من أسمائها:
+
+- <code dir="ltr">date</code> و<code dir="ltr">time</code>، في عمود واحد أو عمودين؛
+- <code dir="ltr">open</code> و<code dir="ltr">high</code> و<code dir="ltr">low</code> و<code dir="ltr">close</code>؛
+- <code dir="ltr">volume</code>، وهو اختياري.
+
+تُكتشف الفاصلة والفاصلة المنقوطة والـ tab، ومعظم صيغ التاريخ وUnix time، لذلك تعمل ملفات التصدير من
+MetaTrader 5 أو TradingView أو NinjaTrader كما هي. والإطار الزمني غير الموجود يُبنى من إطار أقصر منه
+(شموع H1 من M15 مثلاً).
+ولحساب الـ cones والـ bands وفّر شموعاً يومية لسنة تقريباً على الأقل، ويجب أن يكون الرمز موجوداً أيضاً
+في قائمة UNIVERSE.
+
+**المفاتيح بدون لوحة الإعدادات:** تقرأ المنصة أيضاً متغيرات البيئة <code dir="ltr">OANDA_TOKEN</code>
+و<code dir="ltr">OANDA_ACCOUNT_ID</code> و<code dir="ltr">APCA_API_KEY_ID</code>
+و<code dir="ltr">APCA_API_SECRET_KEY</code>. وتبقى المفاتيح على جهازك، في الملف
+<code dir="ltr">user_config.json</code> داخل مجلد <code dir="ltr">AppData:</code>، ولا تُرسَل إلا إلى API
+المصدر نفسه، وتعرضها لوحة الإعدادات بالشكل ••••••.
+
+### أسماء الرموز
+
+تستخدم المنصة اسماً واحداً لكل أداة، وكل مصدر يترجمه إلى اسمه الخاص:
+
+| في المنصة | Yahoo Finance | OANDA | Binance | Alpaca |
+|---|---|---|---|---|
+| <code dir="ltr">EURUSD</code> | <code dir="ltr">EURUSD=X</code> | <code dir="ltr">EUR_USD</code> | — | — |
+| <code dir="ltr">XAUUSD</code> | <code dir="ltr">GC=F</code> | <code dir="ltr">XAU_USD</code> | — | — |
+| <code dir="ltr">XTIUSD</code> | <code dir="ltr">CL=F</code> | <code dir="ltr">WTICO_USD</code> | — | — |
+| <code dir="ltr">NATGAS</code> | <code dir="ltr">NG=F</code> | <code dir="ltr">NATGAS_USD</code> | — | — |
+| <code dir="ltr">CORN</code> | <code dir="ltr">ZC=F</code> | <code dir="ltr">CORN_USD</code> | — | — |
+| <code dir="ltr">US500</code> | <code dir="ltr">ES=F</code> | <code dir="ltr">SPX500_USD</code> | — | — |
+| <code dir="ltr">BTCUSD</code> | <code dir="ltr">BTC-USD</code> | <code dir="ltr">BTC_USD</code> | <code dir="ltr">BTCUSDT</code> | <code dir="ltr">BTC/USD</code> |
+
+أضف السلع من *الإعدادات ⚙ ← UNIVERSE* مع التصنيف CMDTY. يعرف Yahoo Finance الرموز
+<code dir="ltr">XAGUSD</code> و<code dir="ltr">XPTUSD</code> و<code dir="ltr">XBRUSD</code> و<code dir="ltr">COPPER</code>
+و<code dir="ltr">WHEAT</code> و<code dir="ltr">SOYBEAN</code> و<code dir="ltr">COFFEE</code> و<code dir="ltr">SUGAR</code>
+و<code dir="ltr">COCOA</code> و<code dir="ltr">COTTON</code> كما هي، ويعرفها OANDA كلها ما عدا القهوة والكاكاو والقطن.
+والرمز الذي يبقى فارغاً لا يعرفه المصدر بهذا الاسم، فاضبط له *broker symbol* في UNIVERSE باسمه في ذلك
+المصدر، مثل <code dir="ltr">ZO=F</code> للشوفان في Yahoo Finance. ولتعيين اسم يخص مصدراً واحداً فقط، أضفه إلى
+<code dir="ltr">providers.accounts.&lt;id&gt;.symbols</code> في <code dir="ltr">user_config.json</code>، مثل
+<code dir="ltr">"symbols": {"US500": "SPX500_USD"}</code>.
+
+### الحساب الورقي على أسعار حية
+
+- يبدأ برصيد 100,000 دولار ورافعة 1:100، ويمكن تغييرهما من مربع حساب التنفيذ في DATA SOURCES، وزر
+  **RESET** يعيد الحساب إلى البداية.
+- يدعم أوامر market وlimit وstop، والـ stop loss والـ take profit، والإغلاق الجزئي، وفحص الهامش، مع تحويل
+  الربح والخسارة إلى الدولار. ويُحفظ الحساب في الملف <code dir="ltr">paper_account.json</code>.
+- الـ stop loss والـ take profit يُفعَّلان عند لمس ذيل الشمعة (wick): تفحص المنصة كل سعر رأته، وشموع الدقيقة
+  من المصدر، لكنها لا تستخدم أبداً سعراً سابقاً لوجود الأمر.
+- وكما في كل الحسابات، تنتظر الأوامر تفعيل *الإعدادات ⚙ ← TRADING ← LIVE TRADING*.
 
 ## صور من المنصة
 
@@ -309,8 +437,9 @@ npm start              # or: npm run start:sim
 
 ## كيف تعمل المنصة
 
-يتصل الـ backend بمصدر البيانات عبر واجهة موحّدة للمزوّدين (providers)، ويبث الأسعار إلى الواجهة
-عبر WebSocket، ويحسب الـ cones والـ bands في الخلفية، ويقدّم ملفات التحليل عبر REST API. الواجهة تطبيق React 18، ونسختها الجاهزة محفوظة
+يتصل الـ backend بمصدر البيانات النشط عبر واجهة موحّدة للمزوّدين (providers)، ويرسل الأوامر إلى حساب
+التنفيذ (MetaTrader 5 أو OANDA أو حساب ورقي)، ويبث الأسعار إلى الواجهة عبر WebSocket، ويحسب الـ cones
+والـ bands في الخلفية، ويقدّم ملفات التحليل عبر REST API. الواجهة تطبيق React 18، ونسختها الجاهزة محفوظة
 في المجلد <code dir="ltr">frontend_build/</code>، لذلك لا يحتاج تشغيل المنصة إلى Node.js.
 
 </div>
@@ -319,6 +448,8 @@ npm start              # or: npm run start:sim
 flowchart LR
     subgraph feeds["مصادر الأسعار"]
         MT5["MetaTrader 5"]
+        NET["Yahoo Finance · Binance<br/>OANDA · Alpaca"]
+        CSV["ملفات CSV"]
         RITH["Rithmic"]
         SIM["السوق المحاكى<br/>Bates model"]
     end
@@ -337,7 +468,7 @@ QuantumTerminal/
 ├── backend/                 Python backend (FastAPI)
 │   ├── launcher.py          entry point: config, UI serving, command-line options
 │   ├── data_server.py       REST API + WebSocket price streams
-│   ├── providers/           MetaTrader 5, Rithmic, the simulated market (+ Tradovate proof of concept)
+│   ├── providers/           data sources (MT5, Yahoo, Binance, OANDA, Alpaca, CSV, Rithmic), simulator, paper account
 │   ├── local_analysis/      cones, bands and Replay files from the feed's daily bars
 │   ├── security.py          local-only API guard (cross-site / DNS-rebinding protection)
 │   └── tests/               pytest suite — runs without a broker
@@ -354,6 +485,9 @@ QuantumTerminal/
 | الخيار | متغير البيئة | الوظيفة |
 |--------|--------------|---------|
 | <code dir="ltr">--sim</code> | <code dir="ltr">MK_PROVIDER=sim</code> | سوق محاكى + حساب تداول ورقي |
+| <code dir="ltr">--provider yahoo</code> | <code dir="ltr">MK_PROVIDER=yahoo</code> | مصدر البيانات لهذا التشغيل: <code dir="ltr">mt5</code> أو <code dir="ltr">sim</code> أو <code dir="ltr">yahoo</code> أو <code dir="ltr">binance</code> أو <code dir="ltr">oanda</code> أو <code dir="ltr">alpaca</code> أو <code dir="ltr">csv</code> |
+| | <code dir="ltr">OANDA_TOKEN</code>، <code dir="ltr">OANDA_ACCOUNT_ID</code> | الـ token ورقم الحساب في OANDA، بدلاً من إدخالهما في الإعدادات |
+| | <code dir="ltr">APCA_API_KEY_ID</code>، <code dir="ltr">APCA_API_SECRET_KEY</code> | مفتاحا Alpaca، بدلاً من إدخالهما في الإعدادات |
 | <code dir="ltr">--port 8600</code> | <code dir="ltr">MK_PORT</code> | منفذ HTTP (الافتراضي 8502) |
 | <code dir="ltr">--no-browser</code> | <code dir="ltr">MK_NO_BROWSER=1</code> | عدم فتح المتصفح تلقائياً |
 | | <code dir="ltr">MK_UPDATE_CHECK=0</code> | عدم التحقق من وجود إصدار أحدث على GitHub (تُحفظ نتيجة التحقق 10 دقائق) |
@@ -363,8 +497,11 @@ QuantumTerminal/
 | | <code dir="ltr">MK_CORS_ORIGINS</code> | مصادر متصفح إضافية مسموح لها باستدعاء الـ API (الافتراضي <code dir="ltr">http://localhost:3000</code>) |
 
 تُحفظ إعداداتك في الملف <code dir="ltr">user_config.json</code> داخل المجلد الذي يظهر بجانب
-<code dir="ltr">AppData:</code> عند تشغيل المنصة. وإعدادات المحاكي (الـ seed والرصيد الابتدائي
-والرافعة) موجودة تحت <code dir="ltr">providers.accounts.sim_default</code>.
+<code dir="ltr">AppData:</code> عند تشغيل المنصة. وإعدادات كل مصدر موجودة تحت
+<code dir="ltr">providers.accounts.&lt;id&gt;</code> (<code dir="ltr">yahoo_default</code> و<code dir="ltr">binance_default</code>
+و<code dir="ltr">oanda_default</code> و<code dir="ltr">alpaca_default</code> و<code dir="ltr">csv_default</code>)، وإعدادات
+المحاكي (الـ seed والرصيد الابتدائي والرافعة) تحت <code dir="ltr">sim_default</code>، وإعدادات الحساب الورقي تحت
+<code dir="ltr">paper_default</code>.
 
 ## التطوير
 
@@ -385,7 +522,8 @@ QuantumTerminal/
 يستمع الـ backend على العنوان 127.0.0.1 فقط. ويرفض الطلبات القادمة من مواقع أخرى (عبر فحص الـ Origin
 والـ Sec-Fetch-Site، بما في ذلك اتصالات WebSocket)، ومحاولات DNS rebinding (عبر قائمة مسموحة
 لقيم الـ Host)، لذلك لا تستطيع أي صفحة ويب تزورها إرسال أوامر أو قراءة بيانات عبر منصتك أثناء
-تشغيلها. الأوامر محظورة إلى أن تفعّل التداول بنفسك، واستدعاءات MetaTrader 5 تُنفَّذ بالتتابع.
+تشغيلها. الأوامر محظورة إلى أن تفعّل التداول بنفسك، والسيرفر نفسه يرفضها أيضاً. والـ tokens والـ secrets
+لا تُرسَل إلا إلى مصدر بياناتها، ولا تعود أبداً إلى المتصفح. واستدعاءات MetaTrader 5 تُنفَّذ بالتتابع.
 
 وجدت ثغرة أمنية؟ أبلغ عنها بشكل خاص لا في issue عام، وراجع [SECURITY.md](SECURITY.md).
 
@@ -393,8 +531,8 @@ QuantumTerminal/
 
 - **المحرك الكمّي المحلي، الخطوة التالية:** الـ cones والـ bands تُحسب محلياً؛ والتالي هو الـ regimes
   ومستويات الخيارات، لتعمل كل اللوحات دون بيانات خارجية.
-- **وسطاء أكثر:** Interactive Brokers وAlpaca وغيرهما عبر واجهة المزوّدين (الملف
-  <code dir="ltr">providers/sim_provider.py</code> مثال كامل).
+- **وسطاء أكثر:** Interactive Brokers، وتنفيذ الأوامر على Alpaca، عبر واجهة المزوّدين. ومصدر البيانات
+  الجديد يحتاج نحو 100 سطر فقط، والملف <code dir="ltr">providers/binance_provider.py</code> مثال على ذلك.
 - **الترجمة:** مركز التعلم يدعم العربية والإنجليزية، وبقية الواجهة بالإنجليزية حالياً.
 - **إصدارات جاهزة:** ملفات تثبيت موقّعة لتطبيق سطح المكتب.
 
@@ -404,7 +542,8 @@ QuantumTerminal/
 
 منصة Quantum Terminal أداة للتعليم والتحليل. التداول في الأسواق المالية ينطوي على مخاطر عالية للخسارة
 ولا يناسب الجميع. النماذج احتمالية وليست تنبؤية. والأسعار الصادرة عن السوق المحاكى
-(<code dir="ltr">--sim</code>) أسعار اصطناعية، ولا يجوز استخدامها أبداً كبيانات سوق.
+(<code dir="ltr">--sim</code>) أسعار اصطناعية، ولا يجوز استخدامها أبداً كبيانات سوق. وأسعار Yahoo Finance قد
+تكون متأخرة.
 
 ## الترخيص
 

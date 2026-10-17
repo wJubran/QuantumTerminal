@@ -94,6 +94,15 @@ def create_config_router(cfg_manager, broadcast_event: Optional[Callable] = None
         except Exception:
             raise HTTPException(400, "Invalid JSON body")
 
+        # Secrets come back masked from GET /api/config: never store the mask.
+        try:
+            for acc in ((patch.get("providers") or {}).get("accounts") or {}).values():
+                if isinstance(acc, dict):
+                    for key in [k for k, v in acc.items() if v == "••••••"]:
+                        acc.pop(key)
+        except AttributeError:
+            pass
+
         # v2: detect broker_symbol changes in custom_tickers so we can re-resolve
         # the affected tickers on the live MT5 provider without a restart.
         affected_tickers = _collect_broker_symbol_changes(patch)

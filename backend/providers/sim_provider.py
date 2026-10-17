@@ -612,7 +612,8 @@ class SimProvider(BaseProvider):
             for m, o, h, l, c, v in rows
         ]
 
-    def _bid_range(self, sym: str, t0: float, t1: float) -> Tuple[float, float]:
+    def _bid_range(self, sym: str, t0: float, t1: float,
+                   created: Optional[float] = None) -> Tuple[float, float]:
         """(lowest, highest) bid over [t0, t1] — exact for the piecewise-linear tick path."""
         t0 = min(max(t0, t1 - MAX_TRIGGER_LOOKBACK_SEC), t1)
         m0, m1 = self._minute_index(t0), self._minute_index(t1)
@@ -647,8 +648,12 @@ class SimProvider(BaseProvider):
 
     # ── Paper trading ──
 
+    def _instrument(self, sym: str) -> Instrument:
+        """Contract spec used by the paper account (overridden by PaperProvider)."""
+        return instrument(sym)
+
     def _quote(self, sym: str, now: float) -> Tuple[float, float]:
-        inst = instrument(sym)
+        inst = self._instrument(sym)
         bid = round(self._bid(sym, now), inst.digits)
         return bid, round(bid + self._spread(inst, now), inst.digits)
 
@@ -661,13 +666,13 @@ class SimProvider(BaseProvider):
         return amount * rate if direct else amount / rate
 
     def _profit(self, pos: Dict[str, Any], exit_price: float, lots: float, now: float) -> float:
-        inst = instrument(pos["ticker"])
+        inst = self._instrument(pos["ticker"])
         sign = 1.0 if pos["direction"] == "BUY" else -1.0
         raw = (exit_price - pos["open_price"]) * sign * lots * inst.contract_size
         return round(self._to_usd(raw, inst.profit_ccy, now), 2)
 
     def _margin(self, sym: str, lots: float, price: float, now: float) -> float:
-        inst = instrument(sym)
+        inst = self._instrument(sym)
         return self._to_usd(lots * inst.contract_size * price, inst.profit_ccy, now) / self._leverage
 
     def _account_figures(self, now: float) -> Tuple[float, float, float]:
@@ -707,7 +712,7 @@ class SimProvider(BaseProvider):
             lots = round(round(float(lots) / 0.01) * 0.01, 2)
         except (TypeError, ValueError):
             return None
-        return lots if 0.01 <= lots <= instrument(sym).max_lot else None
+        return lots if 0.01 <= lots <= self._instrument(sym).max_lot else None
 
     def place_order(self, order: OrderRequest) -> OrderResult:
         if not self._connected:
@@ -719,7 +724,7 @@ class SimProvider(BaseProvider):
             return self._fail(f"Unsupported order: {kind} {direction} {sym}")
         lots = self._normalize_lots(sym, getattr(order, "lots", None) or order.volume)
         if lots is None:
-            return self._fail(f"Invalid volume (0.01 – {instrument(sym).max_lot} lots, step 0.01)")
+            return self._fail(f"Invalid volume (0.01 – {self._instrument(sym).max_lot} lots, step 0.01)")
         sl = getattr(order, "stop_loss", None) or order.sl or None
         tp = getattr(order, "take_profit", None) or order.tp or None
 
@@ -935,8 +940,8 @@ class SimProvider(BaseProvider):
             # Never look at prices from before the order/position existed.
             start = max(since, created)
             if (sym, start) not in ranges:
-                lo, hi = self._bid_range(sym, start, now)
-                ranges[(sym, start)] = (lo, hi, self._spread(instrument(sym), now))
+                lo, hi = self._bid_range(sym, start, now, created)
+                ranges[(sym, start)] = (lo, hi, self._spread(self._instrument(sym), now))
             return ranges[(sym, start)]
 
         for o in list(self._pending.values()):
@@ -1016,3 +1021,15 @@ class SimProvider(BaseProvider):
                      f"{len(self._positions)} positions, {len(self._pending)} pending orders")
         except (OSError, ValueError, KeyError, TypeError) as e:
             log.warning(f"Ignoring unreadable paper account file {self._state_path}: {e}")
+
+    def reset_account(self) -> None:
+        """Start the paper account over: the starting balance, no positions,
+        no pending orders, no history. Ticket numbers keep counting up."""
+        with self._lock:
+            self._balance = self._initial_balance
+            self._positions.clear()
+            self._pending.clear()
+            self._history = []
+            self._last_check = None
+            self._save_state()
+        log.info(f"Paper account reset to {self._initial_balance:,.2f} USD")

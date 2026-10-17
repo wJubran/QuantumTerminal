@@ -75,7 +75,15 @@ def test_version_endpoint_offline(client):
     assert v["download_url"] == "https://github.com/wJubran/QuantumTerminal/releases"
 
 
+def test_orders_wait_for_the_live_trading_switch(client):
+    client.patch("/api/config", json={"execution": {"live_trading": False}})
+    refused = client.post("/api/orders", json={"ticker": "EURUSD", "direction": "BUY", "lots": 0.1})
+    assert refused.status_code == 403 and refused.json()["detail"]["error"] == "trading_disabled"
+    client.patch("/api/config", json={"execution": {"live_trading": True}})
+
+
 def test_paper_order_roundtrip(client):
+    client.patch("/api/config", json={"execution": {"live_trading": True}})
     r = client.post("/api/orders", json={"ticker": "EURUSD", "direction": "BUY", "lots": 0.1}).json()
     assert r["success"] and r["price"] > 0
     positions = client.get("/api/positions").json()

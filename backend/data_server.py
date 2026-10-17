@@ -143,6 +143,7 @@ from server_config import ServerConfig, PROJECT_ROOT
 from config_manager import ConfigManager
 from config_routes import create_config_router
 from execution_routes import create_execution_router
+from provider_routes import create_provider_router
 from regime_routes import create_regime_router
 from system_routes import create_system_router
 from account_routes import create_account_router
@@ -712,6 +713,16 @@ async def lifespan(app: FastAPI):
                 log.info(f"Provider ready: {len(resolved)} symbols resolved")
             else:
                 log.warning("Running in DEMO MODE — provider failed to connect")
+
+            # A separate execution account (paper account on live prices, OANDA…)
+            execution = cfg_manager.get_execution_provider()
+            if execution is not None and execution is not provider and not execution.connected:
+                try:
+                    ok = await asyncio.wait_for(asyncio.to_thread(execution.connect), timeout=15.0)
+                    log.info(f"Execution account {execution.provider_id}: "
+                             f"{'ready' if ok else 'not connected'}")
+                except Exception as e:
+                    log.warning(f"Execution account {execution.provider_id} failed to connect: {e}")
         else:
             log.warning("Running in DEMO MODE — no provider configured")
     except Exception as e:
@@ -830,6 +841,7 @@ if CONSUMER_MODE:
 # ── Wire API routers (must be at module level, not inside lifespan) ──
 app.include_router(create_config_router(cfg_manager, manager.broadcast_event))
 app.include_router(create_execution_router(cfg_manager, app, manager.broadcast_event))
+app.include_router(create_provider_router(cfg_manager, app, manager.broadcast_event))
 app.include_router(create_regime_router(cfg_manager, app))
 app.include_router(create_system_router())
 app.include_router(create_account_router(manager.broadcast_event))
