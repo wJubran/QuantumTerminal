@@ -176,3 +176,22 @@ class PendingOrder:
     tp: float = 0.0
     comment: str = ""
     time_setup: Optional[datetime] = None
+
+
+@_make_flex
+@dataclass
+class ClosedTrade:
+    """A completed round-trip (entry + exit deal) from the broker history."""
+    ticket: str = ""
+    ticker: str = ""
+    direction: str = ""          # "BUY" | "SELL"
+    lots: float = 0.0
+    open_price: float = 0.0
+    close_price: float = 0.0
+    profit: float = 0.0
+    commission: float = 0.0
+    swap: float = 0.0
+    open_time: str = ""          # ISO-8601 UTC
+    close_time: str = ""         # ISO-8601 UTC
+    comment: str = ""
+    magic: int = 0

@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend · ${{ matrix.os }} · Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.10", "3.12"]
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Lint (syntax errors, undefined names)
+        run: ruff check --select E9,F63,F7,F82 .
+      - name: Tests
+        run: python -m pytest
+
+  frontend:
+    name: UI build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build (CI=true turns lint warnings into errors)
+        run: BUILD_PATH="$RUNNER_TEMP/ui-build" npm run build
+      - name: Shipped frontend_build/ matches the source
+        run: |
+          if ! diff -r "$RUNNER_TEMP/ui-build" ../frontend_build; then
+            echo "::error::frontend_build/ is out of date — run 'npm run build' in frontend/ and commit the result"
+            exit 1
+          fi
+
+  electron-shell:
+    name: Electron shell syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node --check electron_shell/main.js && node --check electron_shell/preload.js

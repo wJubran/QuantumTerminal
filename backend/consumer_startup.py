@@ -126,14 +126,12 @@ def wire_consumer_routes(app):
     Call this AFTER app = FastAPI() in data_server.py.
 
     Adds:
-        /api/auth/*       — login, register, logout, status, refresh
         /api/sync/*       — sync status, cone/options data, staleness, refresh
         /api/consumer/*   — consumer-specific status endpoints
     """
     routes_added = []
 
-    # Auth routes
-    # Removed in Quantum Terminal
+    # Auth routes — none: Quantum Terminal has no accounts or subscriptions.
 
     # Data sync routes
     try:
@@ -169,17 +167,13 @@ def wire_consumer_routes(app):
             "routes_available": routes_added,
         }
 
-        # Auth status
-        status["authenticated"] = True
-        status["user_email"] = "free@quantumterminal"
-        status["subscription_status"] = "active"
-
         # Sync status
         try:
             from data_sync_client import get_sync_client
             sc = get_sync_client()
             status["synced_tickers"] = sc.synced_tickers
             status["offline_mode"] = sc.is_offline
+            status["server_configured"] = sc.server_configured
             status["format_version_ok"] = sc.format_version_ok
             status["sync_in_progress"] = sc.is_syncing   # drives the top-bar pill
             status["last_synced_at"] = sc.last_synced_at
@@ -190,6 +184,7 @@ def wire_consumer_routes(app):
         except Exception:
             status["synced_tickers"] = []
             status["offline_mode"] = True
+            status["server_configured"] = False
             status["sync_in_progress"] = False
 
         return status

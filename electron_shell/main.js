@@ -1,4 +1,9 @@
-// version: v9
+// version: v10
+// v10 — Open-source edition: removed the in-app updater IPC
+//       (mk:download-and-install — it downloaded and launched an installer
+//       from a URL supplied by the page) and the saved-password IPC
+//       (mk:secure-*-password — there is no login any more). Updates are
+//       published as GitHub releases, which the UI opens in the browser.
 // v9 — F-24 (Security wave 2): three new IPC handlers for encrypted
 //      credential storage via Electron safeStorage. Replaces the
 //      consumer-side plaintext password in localStorage (the audit's
@@ -22,8 +27,8 @@
 //           calls and <a target="_blank"> clicks route to the OS default
 //           browser via shell.openExternal instead of spawning an embedded
 //           Electron child window. Specific motivator: the "OPEN FREE
-//           DEMO ACCOUNT" button in SettingsPanel was opening Tickmill
-//           inside a stripped-down Electron sub-window.
+//           DEMO ACCOUNT" button in SettingsPanel was opening the broker
+//           site inside a stripped-down Electron sub-window.
 // v7 — Drop the /S NSIS silent flag from the installer spawn. Electron-
 //      builder's oneClick:true installer is already near-silent (small
 //      progress window only) AND its .onInstSuccess auto-launches the
@@ -63,14 +68,11 @@
 // switch the renderer to load from a local file:// build for full offline /
 // no-localhost-port operation.
 
-const { app, BrowserWindow, dialog, Menu, ipcMain, shell, safeStorage } = require("electron"); // v9: safeStorage for F-24 credential encryption
+const { app, BrowserWindow, dialog, Menu, ipcMain, shell } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const fs   = require("fs");
 const http = require("http");
-const https = require("https");
-const os    = require("os");
-const { URL } = require("url");
 
 // v2 uses port 8503 (v1 uses 8502) so both can run simultaneously without
 // conflict. Explicitly passed to the backend via --port so server_config
@@ -130,30 +132,34 @@ function findBackendCommand() {
     });
   }
 
-  // Dev: run launcher.py via v2's own venv. Independent of v1 — no fallbacks.
+  // Dev: run launcher.py from this repository (electron_shell/ sits next to
+  //   backend/), or from the legacy `source code/` layout. Prefer a project
+  //   venv (.venv / venv / venv_consumer — Windows or POSIX layout), then
+  //   the Python on PATH for the "cloned it, no venv yet" first run.
   if (isDev) {
-    const v2Venv     = path.join(projectRoot, "source code", "venv_consumer", "Scripts", "python.exe");
-    const launcherPy = path.join(projectRoot, "source code", "backend", "launcher.py");
-    if (fs.existsSync(v2Venv) && fs.existsSync(launcherPy)) {
+    const launcherPy = [
+      path.join(projectRoot, "backend", "launcher.py"),
+      path.join(projectRoot, "source code", "backend", "launcher.py"),
+    ].find((p) => fs.existsSync(p));
+    if (launcherPy) {
+      const repoRoot = path.dirname(path.dirname(launcherPy));
+      for (const venv of [".venv", "venv", "venv_consumer"]) {
+        for (const py of [path.join(repoRoot, venv, "Scripts", "python.exe"),
+                          path.join(repoRoot, venv, "bin", "python")]) {
+          candidates.push({ cmd: py, args: [launcherPy], cwd: path.dirname(launcherPy),
+                            label: `dev: ${venv} + launcher.py` });
+        }
+      }
       candidates.push({
-        cmd: v2Venv, args: [launcherPy],
-        cwd: path.dirname(launcherPy),
-        label: "dev: v2 venv + launcher.py",
-      });
-    }
-    // System python only if v2 venv isn't built yet — useful for the
-    // "I cloned the repo, haven't run the venv setup" first-run case.
-    if (fs.existsSync(launcherPy)) {
-      candidates.push({
-        cmd: "python", args: [launcherPy],
-        cwd: path.dirname(launcherPy),
+        cmd: process.platform === "win32" ? "python" : "python3",
+        args: [launcherPy], cwd: path.dirname(launcherPy), onPath: true,
         label: "dev: system python (no venv detected, may fail without deps installed)",
       });
     }
   }
 
   for (const c of candidates) {
-    if (c.cmd === "python" || (c.cmd && fs.existsSync(c.cmd))) {
+    if (c.onPath || (c.cmd && fs.existsSync(c.cmd))) {
       console.log(`[electron] backend: ${c.label}`);
       return c;
     }
@@ -167,7 +173,7 @@ function startBackend() {
   if (!target) {
     dialog.showErrorBox(
       "Backend not found",
-      "Could not locate the Python backend. Expected a PyInstaller-built data_server.exe inside extraResources/backend/, or a dev venv_consumer with data_server.py."
+      "Could not locate the Python backend. Expected a PyInstaller-built data_server.exe inside extraResources/backend/, or backend/launcher.py next to electron_shell/ in a source checkout."
     );
     app.exit(1);
     return;
@@ -185,6 +191,8 @@ function startBackend() {
       MK_PORT: String(BACKEND_PORT),       // launcher.py reads this
       MK_NO_BROWSER: "1",                  // skip auto-launch of system browser
       MK_APP_DIR_NAME: "QuantumTerminal-v2",      // isolate AppData from v1 (auth, cache, account state)
+      // `npm run start:sim` / `electron . --sim`: simulated market + paper trading
+      ...(process.argv.includes("--sim") ? { MK_PROVIDER: "sim" } : {}),
     },
   });
 
@@ -319,73 +327,6 @@ app.on("before-quit", () => {
   }
 });
 
-// ── IPC: secure credential storage (F-24, v9) ──────────────────────────
-// safeStorage encrypts via OS keychain (DPAPI on Windows, Keychain on
-// macOS, libsecret on Linux). Encrypted blob stored at:
-//   path.join(app.getPath('userData'), 'mk_credentials.json')
-// File shape: { email: <plain>, passwordEncryptedB64: <base64 of encrypted Buffer> }
-// Email kept plain (not sensitive — visible on screen during entry).
-// Password encrypted at rest. LoginScreen.jsx v50 calls these via
-// window.mkElectron.secureSavePassword/secureLoadPassword/secureClearPassword.
-
-function _credsFilePath() {
-  return path.join(app.getPath("userData"), "mk_credentials.json");
-}
-
-ipcMain.handle("mk:secure-save-password", async (_event, { email, password }) => {
-  try {
-    if (!safeStorage.isEncryptionAvailable()) {
-      return { ok: false, error: "encryption_unavailable" };
-    }
-    if (typeof password !== "string" || password.length === 0) {
-      return { ok: false, error: "empty_password" };
-    }
-    const encrypted = safeStorage.encryptString(password);
-    const payload = {
-      email: typeof email === "string" ? email : "",
-      passwordEncryptedB64: encrypted.toString("base64"),
-      savedAt: new Date().toISOString(),
-    };
-    await fs.promises.writeFile(_credsFilePath(), JSON.stringify(payload), "utf8");
-    return { ok: true };
-  } catch (e) {
-    console.error("[electron] secure-save-password failed:", e);
-    return { ok: false, error: String(e?.message || e) };
-  }
-});
-
-ipcMain.handle("mk:secure-load-password", async () => {
-  try {
-    const file = _credsFilePath();
-    if (!fs.existsSync(file)) return { ok: true, email: "", password: "" };
-    if (!safeStorage.isEncryptionAvailable()) {
-      return { ok: false, error: "encryption_unavailable" };
-    }
-    const raw = await fs.promises.readFile(file, "utf8");
-    const data = JSON.parse(raw);
-    if (!data?.passwordEncryptedB64) {
-      return { ok: true, email: data?.email || "", password: "" };
-    }
-    const encrypted = Buffer.from(data.passwordEncryptedB64, "base64");
-    const password = safeStorage.decryptString(encrypted);
-    return { ok: true, email: data.email || "", password };
-  } catch (e) {
-    console.error("[electron] secure-load-password failed:", e);
-    return { ok: false, error: String(e?.message || e) };
-  }
-});
-
-ipcMain.handle("mk:secure-clear-password", async () => {
-  try {
-    const file = _credsFilePath();
-    if (fs.existsSync(file)) await fs.promises.unlink(file);
-    return { ok: true };
-  } catch (e) {
-    console.error("[electron] secure-clear-password failed:", e);
-    return { ok: false, error: String(e?.message || e) };
-  }
-});
-
 // ── IPC: save screenshot via native dialog ─────────────────────────────
 // Renderer sends raw PNG bytes; main pops a native dialog + writes the file.
 // Bypasses Chromium's download manager → instant dialog, no base64 hop.
@@ -456,7 +397,7 @@ ipcMain.handle("mk:fetch-trump-news", async (_event, opts) => {
   try {
     const url = "https://news.google.com/rss/search?q=Trump&hl=en-US&gl=US&ceid=US:en";
     const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 Quantum Terminal Consumer Terminal" },
+      headers: { "User-Agent": "Mozilla/5.0 Quantum Terminal" },
     });
     if (!res.ok) {
       return { ok: false, error: `HTTP ${res.status} from Google News` };
@@ -492,114 +433,6 @@ ipcMain.handle("mk:open-external", async (_event, url) => {
     return { ok: true };
   } catch (e) {
     return { ok: false, error: String(e) };
-  }
-});
-
-// ── v5: IPC — download installer + auto-launch + quit terminal ────────
-// Renderer (UpdateAvailableModal) calls this with the installer URL.
-// We follow redirects (max 5 hops), stream to %TEMP%\mk-trades-update.exe
-// emitting `mk:installer-progress` events to the renderer for the progress
-// UI, then spawn the .exe detached and quit the terminal so NSIS can
-// replace the install directory without file-in-use errors.
-function _httpGet(url, redirectsLeft = 5) {
-  return new Promise((resolve, reject) => {
-    let parsed;
-    try { parsed = new URL(url); } catch (e) { return reject(e); }
-    const lib = parsed.protocol === "https:" ? https : http;
-    const req = lib.get(url, { headers: { "User-Agent": "MK-TRADES-Updater" } }, (res) => {
-      const code = res.statusCode || 0;
-      if ([301, 302, 303, 307, 308].includes(code)) {
-        if (redirectsLeft <= 0) return reject(new Error("too many redirects"));
-        const loc = res.headers.location;
-        res.resume();
-        if (!loc) return reject(new Error("redirect without Location"));
-        const next = loc.startsWith("http") ? loc : new URL(loc, parsed).toString();
-        return _httpGet(next, redirectsLeft - 1).then(resolve, reject);
-      }
-      if (code < 200 || code >= 300) {
-        res.resume();
-        return reject(new Error(`HTTP ${code}`));
-      }
-      resolve(res);
-    });
-    req.on("error", reject);
-    req.setTimeout(120_000, () => { try { req.destroy(new Error("timeout")); } catch {} });
-  });
-}
-
-ipcMain.handle("mk:download-and-install", async (event, url) => {
-  if (typeof url !== "string" || !/^https?:\/\//.test(url)) {
-    return { ok: false, error: "invalid url" };
-  }
-  // Path: %TEMP%\mk-trades-update-<timestamp>.exe (timestamp avoids
-  // file-locked rename-on-rerun scenarios).
-  const fname = `mk-trades-update-${Date.now()}.exe`;
-  const dest  = path.join(os.tmpdir(), fname);
-  try {
-    const res = await _httpGet(url);
-    const total = parseInt(res.headers["content-length"] || "0", 10) || 0;
-    let received = 0;
-    let lastEmit = 0;
-    const out = fs.createWriteStream(dest);
-    await new Promise((resolve, reject) => {
-      res.on("data", (chunk) => {
-        received += chunk.length;
-        const now = Date.now();
-        // Throttle progress events to ~6/s so renderer doesn't get hammered.
-        if (now - lastEmit > 160) {
-          lastEmit = now;
-          try {
-            event.sender.send("mk:installer-progress", {
-              received, total,
-              pct: total > 0 ? received / total : null,
-            });
-          } catch {}
-        }
-      });
-      res.on("error", reject);
-      out.on("error", reject);
-      out.on("finish", resolve);
-      res.pipe(out);
-    });
-    // Final progress emit so the UI can flip to "launching".
-    try {
-      event.sender.send("mk:installer-progress", {
-        received, total: received, pct: 1, done: true,
-      });
-    } catch {}
-
-    // Spawn the installer detached so it survives the terminal quitting.
-    // NSIS handles its own "stop running app" but we quit explicitly so
-    // the install dir is unlocked the moment NSIS reaches the file copy.
-    //
-    // v7: NO /S flag. With electron-builder oneClick:true the installer
-    //   is already near-silent (just a small "Installing…" progress
-    //   window) AND it auto-launches the new exe via .onInstSuccess.
-    //   /S would suppress BOTH the progress window AND the auto-launch,
-    //   leaving the user with no running app after update.
-    //   windowsHide:true is kept to avoid any console flash, but the
-    //   NSIS progress window (a GUI window, not a console) still shows.
-    try {
-      const child = spawn(dest, [], {
-        detached: true,
-        stdio: "ignore",
-        windowsHide: true,
-      });
-      child.unref();
-    } catch (e) {
-      return { ok: false, error: `spawn failed: ${String(e)}` };
-    }
-
-    // Tiny delay so the installer process is alive before we quit — avoids
-    // the Windows "starting up" race where a freshly-spawned detached child
-    // can be killed if its parent exits within ~50ms on some configs.
-    setTimeout(() => {
-      try { app.quit(); } catch {}
-    }, 800);
-    return { ok: true, file: dest };
-  } catch (e) {
-    try { fs.unlinkSync(dest); } catch {}
-    return { ok: false, error: String(e?.message || e) };
   }
 });
 

@@ -96,7 +96,7 @@ Responsibilities:
     2. WebSocket Broadcasting — push prices and state-change events to clients
     3. REST API — serve pre-computed data (cones, bands, anchors, probability field)
     4. File Watching — monitor JSON state files for changes, notify clients
-    5. Consumer Auth — JWT login/register via license_client proxy
+    5. No accounts — the commercial login/licence layer is not part of Quantum Terminal
     6. Data Sync — download pre-computed data from server via data_sync_client
 
 REMOVED from PRO (Rule C1 — no calculation triggers):
@@ -182,6 +182,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Requ
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
+from security import LocalOriginGuard
+
 # ── MT5 availability flag (for provider type detection, no direct calls) ──
 try:
     import MetaTrader5 as _mt5_check
@@ -229,12 +231,16 @@ logging.basicConfig(
 # 3. WEBSOCKET CONNECTION MANAGER
 # ============================================================
 
+WS_SEND_TIMEOUT = 2.0  # seconds — a healthy local client acks in milliseconds
+
+
 class ConnectionManager:
     """Manages WebSocket connections across channels."""
 
     def __init__(self):
         self._price_clients: Set[WebSocket] = set()
         self._event_clients: Set[WebSocket] = set()
+        self._closing: Set[asyncio.Task] = set()
 
     async def connect_prices(self, ws: WebSocket):
         await ws.accept()
@@ -256,31 +262,41 @@ class ConnectionManager:
 
     async def broadcast_prices(self, message: dict):
         """Send to all price channel subscribers."""
-        if not self._price_clients:
-            return
-        data = json.dumps(message)
-        dead = []
-        for ws in self._price_clients:
-            try:
-                await ws.send_text(data)
-            except Exception:
-                dead.append(ws)
-        for ws in dead:
-            self._price_clients.discard(ws)
+        await self._broadcast(self._price_clients, message)
 
     async def broadcast_event(self, message: dict):
         """Send to all event channel subscribers."""
-        if not self._event_clients:
+        await self._broadcast(self._event_clients, message)
+
+    async def _broadcast(self, clients: Set[WebSocket], message: dict):
+        """Send one message to every client of a channel, concurrently.
+
+        Iterates over a snapshot — a client connecting or disconnecting during
+        the awaits used to raise "Set changed size during iteration" and lose
+        the whole batch. Each send is capped at WS_SEND_TIMEOUT, so one stalled
+        socket can't freeze the feed for everyone; failed or stalled clients
+        are dropped and closed, letting the UI reconnect cleanly."""
+        if not clients:
             return
         data = json.dumps(message)
-        dead = []
-        for ws in self._event_clients:
-            try:
-                await ws.send_text(data)
-            except Exception:
-                dead.append(ws)
-        for ws in dead:
-            self._event_clients.discard(ws)
+        targets = list(clients)
+        results = await asyncio.gather(
+            *(asyncio.wait_for(ws.send_text(data), WS_SEND_TIMEOUT) for ws in targets),
+            return_exceptions=True,
+        )
+        for ws, result in zip(targets, results):
+            if isinstance(result, BaseException):
+                clients.discard(ws)
+                task = asyncio.ensure_future(self._close_quietly(ws))
+                self._closing.add(task)  # keep a reference until it finishes
+                task.add_done_callback(self._closing.discard)
+
+    @staticmethod
+    async def _close_quietly(ws: WebSocket):
+        try:
+            await asyncio.wait_for(ws.close(code=1011), WS_SEND_TIMEOUT)
+        except Exception:
+            pass
 
     @property
     def price_client_count(self) -> int:
@@ -406,9 +422,9 @@ async def focus_tick_loop(app_state, manager: ConnectionManager, cfg_manager: Co
     last_active = None
     while True:
         try:
-            mt5_cfg = (cfg_manager.get_config().get("providers", {})
-                       .get("accounts", {}).get("mt5_default", {}) or {})
-            use_tick = bool(mt5_cfg.get("use_tick_data", False))
+            # USE TICK DATA of the active data account (mt5_default unless
+            # another provider — e.g. the simulator — is active).
+            use_tick = bool(cfg_manager.get_active_data_account().get("use_tick_data", False))
             sym = get_focused_symbol()
             provider = app_state.provider
 
@@ -775,12 +791,22 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS: only the allow-listed dev origins (the UI this server hosts is
+# same-origin). Was allow_origins=["*"], which let any website the user
+# visited call the trading endpoints on 127.0.0.1.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=server_config.cors_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+# Added after CORS so it wraps it and runs first: rejects foreign Host
+# headers (DNS rebinding) and cross-site requests / WebSocket handshakes.
+app.add_middleware(
+    LocalOriginGuard,
+    allowed_hosts=server_config.allowed_hosts,
+    allowed_origins=server_config.cors_origins,
 )
 
 # ── Wire consumer routes (auth + sync + status) ──
@@ -1084,15 +1110,6 @@ async def health():
         "active_symbols": len(cfg_manager.get_active_universe()),
     }
 
-    # License / auth — Quantum Terminal: always free
-    components[\"license\"] = {
-        \"status\": \"ok\",
-        \"user_email\": \"free@quantumterminal\",
-        \"subscription_status\": \"active\",
-        \"subscription_type\": \"free\",
-        \"offline\": False,
-    }
-
     # Sync status
     try:
         from data_sync_client import get_sync_client as _gsc
@@ -1167,6 +1184,8 @@ async def health():
             "type": provider.provider_type if provider else None,
             "label": provider.label if provider else None,
             "connected": mt5_connected,
+            # True when prices come from the built-in simulator (not a market)
+            "simulated": bool(getattr(provider, "is_simulated", False)),
         },
         # v11+ structured component view
         "overall": overall,
@@ -1844,6 +1863,26 @@ async def get_forest(ticker: str, scenario: str = "mixed"):
 
 
 # REMOVED: /api/cones/manual (Rule C1 — computation endpoint)
+
+
+def _to_pips(ticker: str, distance: float) -> float:
+    """Convert an absolute price distance into pips for the performance stats.
+    FX pips are the 4th decimal (2nd for JPY pairs); metals, energy and
+    indices use their conventional pip (0.1 gold, 0.01 silver/oil, 1 point)."""
+    from server_config import ASSET_CLASSES
+    fiat = {"EUR", "USD", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD",
+            "SEK", "NOK", "DKK", "SGD", "HKD", "ZAR", "MXN", "PLN", "CNH"}
+    t = (ticker or "").upper()
+    is_fx = ASSET_CLASSES.get(t) == "FX" or (len(t) == 6 and t[:3] in fiat and t[3:] in fiat)
+    if is_fx:
+        pip = 0.01 if t.endswith("JPY") else 0.0001
+    elif t == "XAUUSD":
+        pip = 0.1
+    elif t in ("XAGUSD", "XTIUSD", "XBRUSD"):
+        pip = 0.01
+    else:
+        pip = 1.0
+    return round(abs(distance) / pip, 1)
 
 
 @app.get("/api/performance/summary")

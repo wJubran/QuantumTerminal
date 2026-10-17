@@ -224,7 +224,9 @@ class StalenessInfo:
 
 def _read_config() -> configparser.ConfigParser:
     import platform as _plat
-    config = configparser.ConfigParser()
+    # Values are literal: "%APPDATA%" is a Windows-style path, not configparser
+    # interpolation (which rejected the built-in defaults when no ini exists).
+    config = configparser.ConfigParser(interpolation=None)
 
     search_paths = [
         PROJECT_ROOT / "consumer_config.ini",
@@ -518,7 +520,7 @@ class DataSyncClient:
         jwt = ""
 
         if not jwt:
-            log.warning("No JWT — loading from cache (Rule C5)")
+            log.info("Analysis data: no data server sync — reading the local cache (Rule C5)")
             self._offline_mode = True
             summary["offline_mode"] = True
             self._load_all_from_cache()
@@ -903,12 +905,17 @@ class DataSyncClient:
             log.warning(f"[DataSync] Unknown global key: {key}")
             return None
 
+        # Quantum Terminal: no auth and no default data server — when
+        # [server] base_url is empty there is nothing to fetch, use the cache.
+        base_url = _read_config().get("server", "base_url", fallback="").rstrip("/")
+        if not base_url:
+            return self._load_global_cache(key)
+
         try:
-            jwt = self._get_jwt()
-            url = f"{self.base_url}{endpoint}"
-            resp = requests.get(
+            import httpx
+            url = f"{base_url}{endpoint}"
+            resp = httpx.get(
                 url,
-                headers={"Authorization": f"Bearer {jwt}"},
                 timeout=8,  # v7: was 15 — consumer is display-only, fast fail beats long wait
             )
 
@@ -1019,6 +1026,13 @@ class DataSyncClient:
     @property
     def is_offline(self) -> bool:
         return self._offline_mode
+
+    @property
+    def server_configured(self) -> bool:
+        """True when consumer_config.ini names an analysis data server.
+        The open-source edition ships none ([server] base_url is empty), so
+        the UI shows "no data server" rather than an offline error."""
+        return bool(_read_config().get("server", "base_url", fallback="").strip())
 
     @property
     def format_version_ok(self) -> bool:
@@ -1229,6 +1243,7 @@ def create_data_sync_routes():
         #   refresh" prompt can fire on transition true → false.
         return {
             "offline_mode": client.is_offline,
+            "server_configured": client.server_configured,
             "format_version_ok": client.format_version_ok,
             "synced_tickers": client.synced_tickers,
             "sync_errors": client.sync_errors,
