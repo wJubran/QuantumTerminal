@@ -42,6 +42,7 @@ MONTHLIES = 2
 BAND = 0.20                 # strikes kept within ±20% of spot
 IV_LO, IV_HI = 0.03, 3.0
 HISTORY_CAP = 96
+SWING_ENTROPY_CUTS = (0.30, 0.15)     # ORDERED / MODERATE thresholds for the open-interest score
 YEAR = 365.0 * 86400.0
 
 
@@ -425,7 +426,7 @@ def _iv30(exps: Sequence[Expiry], spot: float) -> Optional[float]:
     return math.sqrt(max(float(np.interp(t30, [0.0] + ts, [0.0] + ws)), 0.0) / t30)
 
 
-def _entropy(chain: om.Chain, spot: float, ratio: float, grid: np.ndarray, weights=None):
+def _entropy(chain: om.Chain, spot: float, ratio: float, grid: np.ndarray, weights=None, cuts=(0.6, 0.35)):
     """Gamma concentration across strikes vs an even spread of open interest: 1 = all
     on one strike, 0 = as spread out as an even spread."""
     use = chain.usable
@@ -447,7 +448,7 @@ def _entropy(chain: om.Chain, spot: float, ratio: float, grid: np.ndarray, weigh
         return None
     score = max(0.0, min(1.0, 1.0 - n_eff / n_ref))
     top = np.argsort(p)[::-1]
-    return {"score": round(score, 3), "state": "ORDERED" if score >= 0.6 else "MODERATE" if score >= 0.35 else "CHAOTIC",
+    return {"score": round(score, 3), "state": "ORDERED" if score >= cuts[0] else "MODERATE" if score >= cuts[1] else "CHAOTIC",
             "top_strike": _r(grid[top[0]] * ratio), "concentration_top5": _r(p[top[:5]].sum() * 100, 1),
             "n_strikes": int((p > 0).sum())}
 
@@ -528,7 +529,9 @@ def build(canonical: str, etf: str, data: dict, ratio: float, now: datetime,
     scen = dealer["scenarios"]
     scen["asymmetry_ratio_history"] = _history((prev.get("sauce") or {}).get("dealer_scenarios"),
                                                "asymmetry_ratio_history", scen["asymmetry_ratio"], now, live)
-    ent = _entropy(chain, spot, ratio, grid)
+    # Open interest is far more evenly spread than volume: on the five ETFs' live chains
+    # (16 Oct 2026) the open-interest score ran 0.05-0.35 and the volume score 0.25-0.50.
+    ent = _entropy(chain, spot, ratio, grid, cuts=SWING_ENTROPY_CUTS)
     short = [e for e in every if e.t <= 7 / 365]
     vol_chain = _concat([e.chain() for e in short])
     vols = (np.nan_to_num(np.concatenate([np.concatenate([e.calls["volume"], e.puts["volume"]]) for e in short]))
