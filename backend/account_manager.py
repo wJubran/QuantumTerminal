@@ -56,7 +56,7 @@ import app_paths
 #      trades counted as today and vice versa. v4 detects the broker
 #      offset from a recent tick (round to whole hours) and converts
 #      d.time → real-UTC before comparison.
-log = logging.getLogger("mk.account_manager")
+log = logging.getLogger("qt.account_manager")
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
@@ -364,7 +364,8 @@ class AccountManager:
         Returns True if sync successful.
         """
         try:
-            import MetaTrader5 as mt5
+            from mt5_safe import require_mt5
+            mt5 = require_mt5()  # thread-safe proxy; ImportError if not installed
 
             if not mt5.terminal_info():
                 log.warning("MT5 not connected — cannot sync account")
@@ -404,7 +405,8 @@ class AccountManager:
     def sync_positions_from_mt5(self) -> List[Dict]:
         """Read open positions from MT5."""
         try:
-            import MetaTrader5 as mt5
+            from mt5_safe import require_mt5
+            mt5 = require_mt5()  # thread-safe proxy; ImportError if not installed
 
             if not mt5.terminal_info():
                 return []
@@ -668,7 +670,8 @@ class AccountManager:
         which drifts when weekly_start_equity is stale.
         """
         try:
-            import MetaTrader5 as mt5
+            from mt5_safe import require_mt5
+            mt5 = require_mt5()  # thread-safe proxy; ImportError if not installed
             import time as _time
 
             if not mt5.terminal_info():

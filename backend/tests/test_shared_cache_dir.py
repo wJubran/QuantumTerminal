@@ -14,6 +14,9 @@ import data_sync_client
 from pulse_room import builder, state
 from regime_routes import create_regime_router
 
+# Each test gets its own empty HOME / APPDATA (see conftest).
+pytestmark = pytest.mark.usefixtures("user_dirs")
+
 
 @pytest.fixture(params=[None, "QuantumTerminal-v2"], ids=["launcher", "electron"])
 def launched_by(request, monkeypatch):

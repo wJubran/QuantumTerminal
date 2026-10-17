@@ -1,0 +1,159 @@
+/* version: v3 */
+/* styles.module.css — Pulse Room visual tokens.
+   Hardcoded per spec — DO NOT replace with theme variables on this page. */
+
+/* ----- backgrounds ----- */
+.page              { background: #06060E; min-height: 100%; }
+.cardBg            { background: #09091A; border-radius: 8px; padding: 12px; }
+
+/* ----- borders ----- */
+.borderDefault     { border: 1px solid rgba(232,184,75,0.08); }
+.borderHigh        { border: 1px solid rgba(220,60,60,0.30); }
+.borderMed         { border: 1px solid rgba(232,184,75,0.22); }
+.borderLow         { border: 1px solid rgba(70,110,70,0.18); }
+
+/* ----- typography ----- */
+.brandSmall {
+  font: 10px monospace; letter-spacing: 5px; color: #E8B84B;
+  text-transform: uppercase;
+}
+.title {
+  font-size: 13px; font-weight: 700; letter-spacing: 5px;
+  color: #FFD875; text-transform: uppercase; font-family: monospace;
+}
+.muted   { color: #4A3C28; }
+.dim     { color: #9A7830; }
+.white   { color: #FFFFFF; }
+
+/* ----- top bar ----- */
+.topBar {
+  height: 44px; background: #06060E;
+  border-bottom: 1px solid rgba(232,184,75,0.12);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px;
+}
+
+/* ----- live indicator ----- */
+.liveDot {
+  width: 8px; height: 8px; border-radius: 50%; background: #50C878;
+  animation: pulse 1.4s infinite ease-in-out;
+}
+@keyframes pulse {
+  0%   { opacity: 0; }
+  50%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+.liveText {
+  font: 9px monospace; color: #50C878; margin-left: 6px;
+  letter-spacing: 1.5px; text-transform: uppercase;
+}
+.scannerOff {
+  font: 9px monospace; color: #4A3C28; letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+/* ----- score badge ----- */
+.scoreHigh { color: #E04040; background: rgba(220,60,60,0.10); }
+.scoreMed  { color: #E8B84B; background: rgba(232,184,75,0.08); }
+.scoreLow  { color: #507050; background: rgba(80,120,80,0.07); }
+.scoreBadge {
+  font: 11px monospace; font-weight: 700; padding: 2px 8px;
+  border-radius: 3px; letter-spacing: 1px;
+}
+
+/* ----- impact tag pills ----- */
+.tagQB     { color: #E8B84B; background: rgba(232,184,75,0.10); border: 0.5px solid rgba(232,184,75,0.25); }
+.tagCO     { color: #80B8E0; background: rgba(100,160,220,0.10); border: 0.5px solid rgba(100,160,220,0.25); }
+.tag {
+  font: 8px monospace; padding: 2px 5px; border-radius: 3px;
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+
+/* ----- grid ----- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px; padding: 12px;
+}
+
+/* ----- alert strip ----- */
+.alertStrip { padding: 10px 14px; }
+.alertHeader {
+  font: 9px monospace; letter-spacing: 4px; color: #9A7830;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.alertCrit { background: rgba(220,60,60,0.05); border-left: 2px solid #E04040;
+             padding: 8px 10px; min-height: 36px; }
+.alertWarn { background: rgba(232,184,75,0.04); border-left: 2px solid #E8B84B;
+             padding: 8px 10px; min-height: 36px; }
+.alertAsset { font: 10px monospace; font-weight: 700; color: #FFFFFF;
+              letter-spacing: 2px; min-width: 56px; }
+.alertBody  { font: 9px monospace; color: #60503A; }
+
+/* ----- footer stats ----- */
+.statsBar {
+  height: 36px; padding: 8px 16px;
+  border-top: 1px solid rgba(232,184,75,0.07);
+  display: flex; align-items: center; gap: 18px;
+}
+.statLabel { font: 8px monospace; letter-spacing: 2px; color: #3A3020;
+             text-transform: uppercase; }
+.statValue { font: 10px monospace; font-weight: 700; color: #E8B84B;
+             margin-left: 6px; }
+.statValueImpact { color: #E04040; }
+.sep { width: 1px; height: 14px; background: rgba(232,184,75,0.07); }
+
+/* ----- stale banner ----- */
+.staleBanner {
+  padding: 8px 16px; background: rgba(232,184,75,0.06);
+  border-bottom: 1px solid rgba(232,184,75,0.18);
+  color: #E8B84B; font: 10px monospace; letter-spacing: 1px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+/* ----- calculate spinner overlay ----- */
+.calcOverlay {
+  position: absolute; inset: 0;
+  background: rgba(6,6,14,0.78);
+  display: flex; align-items: center; justify-content: center;
+  font: 11px monospace; color: #E8B84B; letter-spacing: 3px;
+  text-transform: uppercase; z-index: 50;
+}
+
+/* ----- origin colors (cones) ----- */
+.originNow            { color: #FFFFFF; }     /* most recent: brightest */
+.originCurrentWeek    { color: #80B8E0; }     /* bright blue */
+.originPrevWeek       { color: #5C8CB0; }     /* darker blue */
+.originWeekPrev2      { color: #3A6080; }     /* even darker blue (week -2) */
+.originCurrentMonth   { color: #80E0A0; }     /* bright green */
+.originPrevMonth      { color: #5CA070; }     /* darker green */
+.originPrevMonth2     { color: #4A7E58; }     /* even darker green */
+.originExtremeHigh    { color: #FF80B0; }     /* hot pink */
+.originExtremeLow     { color: #FFA060; }     /* warm orange */
+.originBands          { color: #E8B84B; }     /* amber (existing) */
+
+/* ----- swatch (small color square in element list) ----- */
+.swatch {
+  display: inline-block; width: 8px; height: 8px;
+  border-radius: 2px; margin-right: 6px; vertical-align: middle;
+}
+
+/* ----- element list (left side of card) ----- */
+.elementList {
+  flex: 1; min-width: 0; max-height: 154px; overflow-y: auto;
+  font-family: monospace; font-size: 9px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.elementRow {
+  display: flex; align-items: center; gap: 6px;
+  white-space: nowrap; overflow: hidden;
+}
+.elementLabel { color: #FFFFFF; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.elementDist  { color: #9A7830; flex-shrink: 0; font-size: 8px; }
+.elementApex  { color: #FFD875; font-weight: 700; font-size: 8px; letter-spacing: 1px; }
+
+/* ----- card body split (list + radar) ----- */
+.cardBody {
+  display: flex; gap: 8px; align-items: flex-start;
+  margin: 8px 0;
+}

@@ -36,7 +36,7 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
-log = logging.getLogger("mk.app_paths")
+log = logging.getLogger("qt.app_paths")
 
 DEFAULT_APP_DIR_NAME = "QuantumTerminal"
 

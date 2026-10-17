@@ -495,6 +495,19 @@ DEFAULT_USER_CONFIG = {
                 # Default OFF — opt-in for users with capable hardware.
                 "use_tick_data": False,
             },
+            # Built-in simulated market + paper trading. No broker needed —
+            # select it with MK_PROVIDER=sim / `launcher.py --sim`, or by
+            # enabling it and pointing active_data/active_execution at it.
+            "sim_default": {
+                "id": "sim_default",
+                "type": "sim",
+                "label": "Simulated Market (paper trading)",
+                "enabled": False,
+                "seed": 2026,                 # same seed → same price history
+                "initial_balance": 100000.0,  # paper account, USD
+                "leverage": 100,
+                "use_tick_data": True,        # 10 fps focus feed is free here
+            },
             "rithmic_default": {
                 "id": "rithmic_default",
                 "type": "rithmic",
@@ -649,6 +662,30 @@ def _build_asset_metadata() -> Dict[str, dict]:
 # ════════════════════════════════════════════════════════════════
 # ConfigManager
 # ════════════════════════════════════════════════════════════════
+
+_override_warned: set = set()
+
+
+def _apply_provider_override(providers: Dict[str, Any]) -> Dict[str, Any]:
+    """MK_PROVIDER=<type> (e.g. "sim") makes the first account of that type —
+    `<type>_default` if present — enabled and active for both data and
+    execution, for this process only. The saved user config is untouched."""
+    forced = os.environ.get("MK_PROVIDER", "").strip().lower()
+    if not forced:
+        return providers
+    accounts = providers.get("accounts", {}) or {}
+    ids = [pid for pid, a in accounts.items() if (a or {}).get("type") == forced]
+    if not ids:
+        if forced not in _override_warned:
+            _override_warned.add(forced)
+            log.warning(f"MK_PROVIDER={forced!r}: no account of that type configured — ignored")
+        return providers
+    pid = f"{forced}_default" if f"{forced}_default" in ids else ids[0]
+    accounts[pid]["enabled"] = True
+    providers["active_data"] = pid
+    providers["active_execution"] = pid
+    return providers
+
 
 class ConfigManager:
     """
@@ -815,6 +852,8 @@ class ConfigManager:
         except Exception as e:
             log.warning(f"Failed to load user-data store entries: {e}")
             # leave whatever was already in merged (could be {} from defaults)
+
+        merged["providers"] = _apply_provider_override(merged.get("providers", {}))
 
         # Inject computed / read-only fields
         merged["asset_metadata"] = self._get_full_asset_metadata(merged)
@@ -1162,10 +1201,7 @@ class ConfigManager:
         """
         from providers import create_provider
 
-        merged = self._deep_merge(
-            copy.deepcopy(DEFAULT_USER_CONFIG.get("providers", {})),
-            copy.deepcopy(self._user_config.get("providers", {})),
-        )
+        merged = self._providers_config()
 
         accounts = merged.get("accounts", {})
         self._providers.clear()
@@ -1219,21 +1255,26 @@ class ConfigManager:
             return self._providers.get(provider_id)
 
         # Default: active data provider
-        merged = self._deep_merge(
-            copy.deepcopy(DEFAULT_USER_CONFIG.get("providers", {})),
-            copy.deepcopy(self._user_config.get("providers", {})),
-        )
-        active_id = merged.get("active_data", "mt5_default")
+        active_id = self._providers_config().get("active_data", "mt5_default")
         return self._providers.get(active_id)
 
     def get_execution_provider(self) -> Optional[Any]:
         """Get the active execution provider."""
+        active_id = self._providers_config().get("active_execution", "mt5_default")
+        return self._providers.get(active_id)
+
+    def get_active_data_account(self) -> Dict[str, Any]:
+        """Config dict of the active data provider's account ({} if unknown)."""
+        merged = self._providers_config()
+        return dict(merged.get("accounts", {}).get(merged.get("active_data", ""), {}) or {})
+
+    def _providers_config(self) -> Dict[str, Any]:
+        """Merged providers section (defaults + user config + env override)."""
         merged = self._deep_merge(
             copy.deepcopy(DEFAULT_USER_CONFIG.get("providers", {})),
             copy.deepcopy(self._user_config.get("providers", {})),
         )
-        active_id = merged.get("active_execution", "mt5_default")
-        return self._providers.get(active_id)
+        return _apply_provider_override(merged)
 
     def get_all_providers(self) -> Dict[str, Any]:
         """Return all instantiated providers."""

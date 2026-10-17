@@ -12,7 +12,7 @@ import threading
 from . import builder, state
 
 
-log = logging.getLogger("mk.pulse_room.sync_hook")
+log = logging.getLogger("qt.pulse_room.sync_hook")
 
 
 def on_sync_complete() -> None:

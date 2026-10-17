@@ -21,7 +21,7 @@ import app_paths
 from . import state
 
 
-log = logging.getLogger("mk.pulse_room.builder")
+log = logging.getLogger("qt.pulse_room.builder")
 
 
 # ---------- path resolvers ----------
