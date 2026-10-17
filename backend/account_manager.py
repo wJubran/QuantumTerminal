@@ -33,13 +33,18 @@ Dependencies: MetaTrader5 (optional), json, pathlib
 
 import json
 import logging
-import os
 from dataclasses import dataclass, field, asdict
 from typing import Dict, List, Optional
 from datetime import datetime, date, timedelta
 from pathlib import Path
 
-# version: v4 (broker-TZ-aware period-pnl bucketing)
+import app_paths
+
+# version: v5 (user-data dir from app_paths)
+# v5 — _get_user_data_dir() returns app_paths.app_data_dir(), shared with
+#      every other module. Off Windows that is ~/.<APP_DIR>/ (exact case)
+#      rather than ~/.<app_dir lowercased>/; app_paths copies existing
+#      account_settings.json / account_state.json over once.
 # v4 — get_period_pnl now corrects for the broker TZ before bucketing
 #      deals into today/yesterday/this_week/etc. The MetaTrader5 library
 #      returns deal.time as broker server time treated as a Unix epoch
@@ -55,23 +60,13 @@ log = logging.getLogger("qt.account_manager")
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
-# v3: AppData dir name from env var so v1 / v2 builds get separate dirs.
-APP_DIR = os.environ.get("MK_APP_DIR_NAME", "QuantumTerminal")
-
 
 def _get_user_data_dir() -> Path:
     """Per-user writable dir for account_settings.json + account_state.json.
     Fixes Errno 13 Permission denied under Program Files on installed consumer.
-    v3: AppData dir name comes from MK_APP_DIR_NAME (default "QuantumTerminal")."""
-    import platform as _platform
-    if _platform.system() == "Windows":
-        appdata = os.environ.get("APPDATA", "")
-        base = Path(appdata) / APP_DIR if appdata else \
-               Path.home() / "AppData" / "Roaming" / APP_DIR
-    else:
-        base = Path.home() / f".{APP_DIR.lower()}"
-    base.mkdir(parents=True, exist_ok=True)
-    return base
+    v3: AppData dir name comes from MK_APP_DIR_NAME (default "QuantumTerminal").
+    v5: resolved by app_paths.app_data_dir()."""
+    return app_paths.app_data_dir()
 
 
 def _resolve_default_settings_path() -> Path:

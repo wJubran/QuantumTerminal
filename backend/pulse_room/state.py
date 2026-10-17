@@ -1,4 +1,8 @@
-# version: v2
+# version: v3
+# v3 — AppData root comes from app_paths.app_data_dir() (default name
+#      "QuantumTerminal", like the rest of the backend, instead of
+#      "QuantumTerminal-v2"). Existing watchlist/scanner files are copied
+#      over from the old folder once by app_paths.
 """Pulse Room state persistence.
 
 Owns the two AppData JSON files:
@@ -17,6 +21,8 @@ import threading
 from pathlib import Path
 from typing import Any
 
+import app_paths
+
 
 # Process-wide lock guarding pulse snapshot rebuilds. Both the user-initiated
 # Calculate (routes.py) and the auto-rebuild after sync (sync_hook.py) acquire
@@ -26,17 +32,11 @@ calc_lock = threading.Lock()
 
 
 def _appdata_root() -> Path:
-    """Return %APPDATA%/QuantumTerminal-v2 (or whatever MK_APP_DIR_NAME points to).
-
-    This mirrors v2's existing AppData isolation pattern. We import
-    config_manager lazily to avoid a circular import at module load time.
+    """Return the backend's app-data dir (app_paths.app_data_dir()) —
+    %APPDATA%/<MK_APP_DIR_NAME or "QuantumTerminal"> on Windows — so Pulse
+    Room state sits beside the cache the snapshot is built from.
     """
-    appdata = os.environ.get("APPDATA")
-    if not appdata:
-        # Fallback for non-Windows dev setups.
-        appdata = str(Path.home() / ".config")
-    dir_name = os.environ.get("MK_APP_DIR_NAME", "QuantumTerminal-v2")
-    return Path(appdata) / dir_name
+    return app_paths.app_data_dir()
 
 
 def _pulse_dir() -> Path:

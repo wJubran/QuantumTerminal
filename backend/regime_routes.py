@@ -1,6 +1,9 @@
-# version: v2
+# version: v3
 """
 regime_routes.py — Consumer terminal HMM regime routes.
+
+v3 — Disk fallback reads app_paths.cache_dir(), the same folder the sync
+     client writes and Pulse Room builds from.
 
 v2 — Lit up from stub. Serves the DC HMM-regime cache files produced by the
      Data Center and synced into %APPDATA%\\QuantumTerminal\\cache\\:
@@ -42,8 +45,8 @@ def create_regime_router(cfg_manager=None, app=None) -> APIRouter:
 
     def _cache_dir() -> _Path:
         try:
-            from data_sync_client import _get_cache_dir
-            return _get_cache_dir()
+            from app_paths import cache_dir
+            return cache_dir()
         except Exception:
             return None
 
