@@ -230,6 +230,10 @@ def _parse_args(argv=None):
     parser.add_argument("--sim", action="store_true",
                         help="Use the built-in simulated market feed with paper "
                              "trading - no broker needed (env MK_PROVIDER=sim)")
+    parser.add_argument("--provider", metavar="TYPE",
+                        help="Data source for this run: mt5, sim, yahoo, binance, oanda, "
+                             "alpaca or csv (env MK_PROVIDER). Data-only sources trade "
+                             "on the paper account")
     # parse_known_args: tolerate extra args injected by packagers / shells.
     args, _unknown = parser.parse_known_args(argv)
     return args
@@ -245,6 +249,8 @@ def main():
         os.environ["MK_NO_BROWSER"] = "1"
     if args.sim:
         os.environ["MK_PROVIDER"] = "sim"
+    elif args.provider:
+        os.environ["MK_PROVIDER"] = args.provider.strip().lower()
 
     # v2 Phase D: persistent rotating log file under %APPDATA%\<APP_DIR>\logs\.
     #   Console behavior unchanged; file logging is additive.
@@ -293,8 +299,11 @@ def main():
                 pass  # Read-only _internal — config found via sys.path instead
 
     print(f"  Server : http://127.0.0.1:{PORT}")
-    if os.environ.get("MK_PROVIDER", "").strip().lower() == "sim":
+    forced = os.environ.get("MK_PROVIDER", "").strip().lower()
+    if forced == "sim":
         print("  Feed   : SIMULATED market data + paper trading (not real prices)")
+    elif forced:
+        print(f"  Feed   : {forced} (change it in Settings → DATA SOURCES)")
     print(f"  Press Ctrl+C to stop")
     print("=" * 50)
     print()

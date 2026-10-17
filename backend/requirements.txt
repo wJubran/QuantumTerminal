@@ -1,14 +1,14 @@
 # Quantum Terminal — Python dependencies (Python 3.10+)
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
-httpx>=0.25.0
+httpx>=0.25.0          # internet data sources (Binance, OANDA, Alpaca)
 websockets>=12.0
 watchfiles>=0.21.0
 pydantic>=2.5.0
 numpy>=1.24            # simulated market feed, data manager
 pandas>=2.0            # data manager
 pyarrow>=14.0          # data manager parquet store
-yfinance>=0.2.30       # macro regime / sector rotation
+yfinance>=0.2.30       # Yahoo Finance data source, macro regime / sector rotation
 
 # MetaTrader 5 feed + execution. MetaQuotes only ships this package for
 # Windows; elsewhere the terminal runs with the simulated feed (--sim).

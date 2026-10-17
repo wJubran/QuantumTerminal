@@ -1,4 +1,7 @@
-// version: v29
+// version: v30
+// v30 — The FEED status names the data source (Settings → DATA SOURCES):
+//       MT5 ● LINKED, FEED ● SIMULATED, or FEED ● YAHOO / BINANCE / OANDA /
+//       ALPACA / CSV, with its full name on hover.
 // v29 — Open-source edition (Quantum Terminal). Header/footer branding is
 //       "QUANTUM TERMINAL"; removed the subscription TierBadge, PRO badges
 //       and the commercial User Messages inbox (its server does not exist in
@@ -647,6 +650,8 @@ function MainTerminal() {
     syncStatus, serverStatus, fetchBars, getPrevPrice, refreshSync,
     config, configHook,
   } = terminal;
+  // MetaTrader 5 keeps its MT5 ● LINKED status; any other source reads FEED ● <SOURCE>.
+  const isMt5Feed = !serverStatus.simulated && (!serverStatus.feedType || serverStatus.feedType === "mt5");
 
   const themeMode = config?._raw?.display?.theme || "dark";
   const C = THEMES[themeMode] || DARK;
@@ -1187,10 +1192,13 @@ function MainTerminal() {
           {syncStatus?.staleness_level === "warning" && <span style={{ fontSize: "7px", color: C.amber }}>⚠</span>}
           {syncStatus?.staleness_level === "error" && <span style={{ fontSize: "7px", color: C.red }}>⚠ STALE</span>}
           <span style={{color:C.border}}>|</span>
-          <span style={{ fontSize: "8px", color: C.muted, letterSpacing: "0.5px" }}>{serverStatus.simulated ? "FEED" : "MT5"}</span>
-          <span title={serverStatus.simulated ? "Built-in simulated market — prices are not real" : undefined}
+          <span style={{ fontSize: "8px", color: C.muted, letterSpacing: "0.5px" }}>{isMt5Feed ? "MT5" : "FEED"}</span>
+          <span title={serverStatus.simulated ? "Built-in simulated market — prices are not real"
+                       : !isMt5Feed ? `${serverStatus.feedLabel || serverStatus.feedType} — change it in Settings → DATA SOURCES` : undefined}
             style={{ fontSize: "8px", color: serverStatus.simulated ? C.amber : serverStatus.mt5Connected ? C.green : C.red, fontWeight: 700 }}>
-            {serverStatus.simulated ? "● SIMULATED" : serverStatus.mt5Connected ? "● LINKED" : "● NO LINK"}
+            {serverStatus.simulated ? "● SIMULATED"
+              : isMt5Feed ? (serverStatus.mt5Connected ? "● LINKED" : "● NO LINK")
+              : `${serverStatus.mt5Connected ? "●" : "○"} ${String(serverStatus.feedType).toUpperCase()}`}
           </span>
           <span style={{color:C.border}}>|</span>
           {(() => {
@@ -1559,7 +1567,7 @@ function MainTerminal() {
           <span style={{color:C.border}}>|</span>
           <span>{openCharts.length} CHART{openCharts.length !== 1 ? "S" : ""}</span>
           <span style={{color:C.border}}>|</span>
-          <span>{serverStatus.simulated ? "SIM" : "MT5"} {serverStatus.mt5Connected ? <span style={{color:serverStatus.simulated ? C.amber : C.green}}>●</span> : <span style={{color:C.red}}>●</span>}</span>
+          <span>{serverStatus.simulated ? "SIM" : isMt5Feed ? "MT5" : String(serverStatus.feedType).toUpperCase()} {serverStatus.mt5Connected ? <span style={{color:serverStatus.simulated ? C.amber : C.green}}>●</span> : <span style={{color:C.red}}>●</span>}</span>
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           {/* ── Data freshness (Rule C4) ── */}

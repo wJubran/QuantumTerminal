@@ -8,6 +8,7 @@
  *   UNIVERSE    — add/remove/hide tickers, drag-reorder
  *   DISPLAY     — chart layers, visible panels, default timeframe, chart height
  *   TRADING     — execution settings, risk governor, account sync
+ *   DATA SOURCES — where prices come from, which account takes the orders
  *   PROVIDERS   — connection status, account info
  *   PROFILES    — save/load/delete terminal configurations
  *   TIME        — main clock, world clock slots
@@ -35,7 +36,12 @@
  *   in place (already inactive). MainChart.jsx loses its Tradovate toolbar pill
  *   in the same pass (its v102).
  */
-// version: v5
+// version: v6
+//
+// v6 — DATA SOURCES section (DataSourcesSection.jsx): Yahoo Finance, Binance,
+//      OANDA, Alpaca, CSV files, the simulator or MetaTrader 5, switched
+//      while the terminal runs. The PROVIDERS badge names the execution
+//      account (paper account on live prices, OANDA, simulator, MT5).
 //
 // v5 — Quick-save per profile row. The PROFILES section previously only
 //      had LOAD and DEL on each row; saving back into an existing profile
@@ -52,6 +58,7 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import { TZ_OPTIONS, DEFAULT_TIME_CONFIG } from "./time_utils";
 import useAppVersion from "../hooks/useAppVersion";
 import { isSoundEnabled, setSoundEnabled, playSound, SOUND_FILES } from "../utils/sounds";
+import DataSourcesSection from "./DataSourcesSection";
 
 const C = {
   bg:      "#000000",
@@ -72,10 +79,10 @@ const C = {
 };
 const mono = "'Courier New', Consolas, 'Liberation Mono', monospace";
 
-const SECTIONS = ["universe", "display", "sounds", "trading", "providers", "profiles", "time", "maintenance"];
+const SECTIONS = ["universe", "display", "sounds", "trading", "datasources", "providers", "profiles", "time", "maintenance"];
 
 export default function SettingsPanel({ open, onClose, configHook, config }) {
-  const [expanded, setExpanded] = useState({ universe: true, display: false, sounds: false, trading: false, providers: false, profiles: false, time: false, maintenance: false, about: false });
+  const [expanded, setExpanded] = useState({ universe: true, display: false, sounds: false, trading: false, datasources: false, providers: false, profiles: false, time: false, maintenance: false, about: false });
   // v4: master sound switch — held in localStorage; mirrored in component
   // state so the UI re-renders when toggled.
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
@@ -259,8 +266,10 @@ export default function SettingsPanel({ open, onClose, configHook, config }) {
       const r = await fetch("/api/mt5/status");
       if (r.ok) {
         const d = await r.json();
-        // simulated: the built-in simulator is the execution account (--sim)
-        setMt5Status({ connected: d.connected, account: d.account || null, simulated: !!d.simulated });
+        // simulated: the built-in simulator or the paper account takes the orders;
+        // provider: the execution account's type (mt5, sim, paper, oanda)
+        setMt5Status({ connected: d.connected, account: d.account || null, simulated: !!d.simulated,
+                       provider: d.provider || "mt5" });
         return;
       }
     } catch { /* fallback below */ }
@@ -790,13 +799,16 @@ export default function SettingsPanel({ open, onClose, configHook, config }) {
                     </span>
                     <div style={{ fontSize: 7, color: C.muted, marginTop: 2 }}>
                       {!execution.live_trading ? "Orders are blocked — safe mode"
+                        : mt5Status?.provider === "paper" ? "Orders go to the paper account (live prices)"
                         : mt5Status?.simulated ? "Orders go to the simulated paper account"
                         : "⚠ ORDERS WILL BE SENT TO BROKER"}
                     </div>
                   </div>
                   <button onClick={() => {
                     if (!execution.live_trading) {
-                      const prompt = mt5Status?.simulated
+                      const prompt = mt5Status?.provider === "paper"
+                        ? "Enable trading on the paper account?\n\nOrders fill at the data source's live prices — no real money is involved."
+                        : mt5Status?.simulated
                         ? "Enable trading on the simulated paper account?\n\nOrders fill at simulated prices — no real money is involved."
                         : "Enable LIVE TRADING?\n\nThis allows the terminal to send real orders to your broker. Make sure you understand the risks.";
                       if (!window.confirm(prompt)) return;
@@ -1003,12 +1015,22 @@ export default function SettingsPanel({ open, onClose, configHook, config }) {
             </div>
           )}
 
+          {/* ═══════════ DATA SOURCES ═══════════ */}
+          <SectionHeader title="DATA SOURCES" expanded={expanded.datasources} onToggle={() => toggle("datasources")} />
+          {expanded.datasources && (
+            <div style={sectionBodyStyle}>
+              <DataSourcesSection C={C} mono={mono} labelStyle={labelStyle} inputStyle={inputStyle} />
+            </div>
+          )}
+
           {/* ═══════════ PROVIDERS — MT5 CONNECTION ═══════════ */}
           <SectionHeader title="PROVIDERS" expanded={expanded.providers} onToggle={() => toggle("providers")} />
           {expanded.providers && (
             <div style={sectionBodyStyle}>
 
               {/* ── Connection Status Badge ── */}
+              {/* v6: names the execution account — the simulator, the paper
+                  account on a data source's live prices, OANDA, or MT5. */}
               <div style={{
                 padding: "8px 10px", marginBottom: 10,
                 background: mt5Status?.simulated ? `${C.yellow}10` : mt5Status?.connected ? `${C.green}12` : `${C.red}08`,
@@ -1017,9 +1039,11 @@ export default function SettingsPanel({ open, onClose, configHook, config }) {
               }}>
                 <div>
                   <div style={{ fontSize: 10, fontWeight: 800, color: mt5Status?.simulated ? C.yellow : mt5Status?.connected ? C.green : C.red, fontFamily: mono }}>
-                    {mt5Status?.simulated
+                    {mt5Status?.provider === "paper"
+                      ? `PAPER ACCOUNT ${mt5Status?.connected ? "● LIVE PRICES" : "○ NO DATA SOURCE"}`
+                      : mt5Status?.simulated
                       ? "SIMULATED MARKET ● ACTIVE"
-                      : `MT5 ${mt5Status?.connected ? "● CONNECTED" : "○ NOT CONNECTED"}`}
+                      : `${mt5Status?.provider && mt5Status.provider !== "mt5" ? mt5Status.provider.toUpperCase() : "MT5"} ${mt5Status?.connected ? "● CONNECTED" : "○ NOT CONNECTED"}`}
                   </div>
                   {mt5Status?.connected && mt5Status?.account && (
                     <div style={{ fontSize: 8, color: C.muted, marginTop: 2, fontFamily: mono }}>
@@ -1028,7 +1052,7 @@ export default function SettingsPanel({ open, onClose, configHook, config }) {
                     </div>
                   )}
                 </div>
-                {!mt5Status?.simulated && <button
+                {!mt5Status?.simulated && (!mt5Status?.provider || mt5Status.provider === "mt5") && <button
                   onClick={mt5Status?.connected ? disconnectMt5 : connectMt5}
                   disabled={mt5Busy}
                   style={{
@@ -1213,8 +1237,10 @@ export default function SettingsPanel({ open, onClose, configHook, config }) {
                 padding: "8px 10px", background: `${C.cyan}10`, border: `1px solid ${C.cyan}40`,
                 color: C.cyan, fontFamily: mono, fontSize: 8, lineHeight: 1.6,
               }}>
-                Start the terminal with <span style={{ color: C.white, fontWeight: 700 }}>python launcher.py --sim</span> to
-                trade a simulated market (Bates model) on a paper account — no broker, any OS.
+                Pick a free source under <span style={{ color: C.white, fontWeight: 700 }}>DATA SOURCES</span> (Yahoo
+                Finance, Binance) and trade the real market on a paper account. Or start the terminal
+                with <span style={{ color: C.white, fontWeight: 700 }}>python launcher.py --sim</span> to
+                trade a simulated market (Bates model) — no broker, no internet, any OS.
               </div>
             </div>
           )}

@@ -520,6 +520,35 @@ DEFAULT_USER_CONFIG = {
                 "app_name": "Quantum Terminal",
                 "app_version": "1.0",
             },
+            # Internet data sources — pick one in Settings → DATA SOURCES,
+            # with `launcher.py --provider <type>`, or MK_PROVIDER=<type>.
+            "yahoo_default": {
+                "id": "yahoo_default", "type": "yahoo", "label": "Yahoo Finance",
+                "enabled": False, "quote_interval": 30, "symbols": {},
+            },
+            "binance_default": {
+                "id": "binance_default", "type": "binance", "label": "Binance",
+                "enabled": False, "base_url": "https://api.binance.com", "quote_asset": "USDT",
+                "symbols": {},
+            },
+            "oanda_default": {
+                "id": "oanda_default", "type": "oanda", "label": "OANDA",
+                "enabled": False, "environment": "practice", "token": "", "account_id": "",
+                "symbols": {},
+            },
+            "alpaca_default": {
+                "id": "alpaca_default", "type": "alpaca", "label": "Alpaca",
+                "enabled": False, "key_id": "", "secret_key": "", "feed": "iex", "symbols": {},
+            },
+            "csv_default": {
+                "id": "csv_default", "type": "csv", "label": "CSV files",
+                "enabled": False, "folder": "",
+            },
+            # Paper account on the live prices of the active data source.
+            "paper_default": {
+                "id": "paper_default", "type": "paper", "label": "Paper account (live prices)",
+                "enabled": False, "initial_balance": 100000.0, "leverage": 100,
+            },
         },
     },
 
@@ -663,13 +692,41 @@ def _build_asset_metadata() -> Dict[str, dict]:
 # ConfigManager
 # ════════════════════════════════════════════════════════════════
 
+# Account fields that are secrets (API tokens, passwords). They stay in
+# user_config.json: never sent to the browser (shown as SECRET_MASK), never
+# copied into saved profiles.
+SECRET_KEYS = frozenset({"token", "secret_key", "api_secret", "password"})
+SECRET_MASK = "••••••"
+
+
+def _accounts_of(providers: Any) -> List[dict]:
+    accounts = providers.get("accounts") if isinstance(providers, dict) else None
+    return [a for a in accounts.values() if isinstance(a, dict)] if isinstance(accounts, dict) else []
+
+
+def mask_account_secrets(providers: Any) -> None:
+    """In place: every secret of providers["accounts"] → SECRET_MASK."""
+    for acc in _accounts_of(providers):
+        for key in SECRET_KEYS:
+            if acc.get(key):
+                acc[key] = SECRET_MASK
+
+
+def _strip_account_secrets(providers: Any) -> None:
+    """In place: remove every secret of providers["accounts"]."""
+    for acc in _accounts_of(providers):
+        for key in SECRET_KEYS:
+            acc.pop(key, None)
+
+
 _override_warned: set = set()
 
 
 def _apply_provider_override(providers: Dict[str, Any]) -> Dict[str, Any]:
-    """MK_PROVIDER=<type> (e.g. "sim") makes the first account of that type —
-    `<type>_default` if present — enabled and active for both data and
-    execution, for this process only. The saved user config is untouched."""
+    """MK_PROVIDER=<type> (e.g. "sim", "binance") makes the first account of
+    that type — `<type>_default` if present — enabled and active, for this
+    process only. The saved user config is untouched. A data-only source
+    (Yahoo, Binance, Alpaca, CSV) gets the paper account for execution."""
     forced = os.environ.get("MK_PROVIDER", "").strip().lower()
     if not forced:
         return providers
@@ -684,6 +741,10 @@ def _apply_provider_override(providers: Dict[str, Any]) -> Dict[str, Any]:
     accounts[pid]["enabled"] = True
     providers["active_data"] = pid
     providers["active_execution"] = pid
+    from providers import DATA_ONLY_TYPES
+    if forced in DATA_ONLY_TYPES and "paper_default" in accounts:
+        accounts["paper_default"]["enabled"] = True
+        providers["active_execution"] = "paper_default"
     return providers
 
 
@@ -854,6 +915,12 @@ class ConfigManager:
             # leave whatever was already in merged (could be {} from defaults)
 
         merged["providers"] = _apply_provider_override(merged.get("providers", {}))
+        # Tokens and passwords never leave the backend (see provider_routes),
+        # not even inside a saved profile.
+        mask_account_secrets(merged["providers"])
+        for snapshot in (merged.get("profiles") or {}).values():
+            if isinstance(snapshot, dict):
+                mask_account_secrets(snapshot.get("providers"))
 
         # Inject computed / read-only fields
         merged["asset_metadata"] = self._get_full_asset_metadata(merged)
@@ -1244,7 +1311,21 @@ class ConfigManager:
             except KeyError as e:
                 log.error(f"Failed to create provider {pid}: {e}")
 
+        # The paper account trades on another provider's prices.
+        for provider in self._providers.values():
+            if hasattr(provider, "bind_providers"):
+                provider.bind_providers(self.get_provider)
+
         return self._providers
+
+    def shutdown_providers(self) -> None:
+        """Disconnect every provider instance (before re-creating them)."""
+        for pid, provider in list(self._providers.items()):
+            try:
+                if getattr(provider, "connected", False):
+                    provider.disconnect()
+            except Exception as e:
+                log.warning(f"Provider {pid}: disconnect failed: {e}")
 
     def get_provider(self, provider_id: Optional[str] = None) -> Optional[Any]:
         """
@@ -1290,6 +1371,8 @@ class ConfigManager:
             k: copy.deepcopy(v) for k, v in self._user_config.items()
             if k not in ("profiles", "chart_presets", "chart_templates")
         }
+        # Tokens and passwords stay in user_config.json only.
+        _strip_account_secrets(snapshot.get("providers"))
         _user_data_save("profiles", name, snapshot)
         log.info(f"Saved profile: {name}")
 
@@ -1299,11 +1382,19 @@ class ConfigManager:
         if payload is None:
             log.warning(f"Profile '{name}' not found")
             return False
-        snapshot = dict(payload)
+        snapshot = copy.deepcopy(dict(payload))
         snapshot.pop("saved_at", None)
+        # Profiles carry no secrets: keep the tokens and passwords in use.
+        _strip_account_secrets(snapshot.get("providers"))
+        current = (self._user_config.get("providers") or {}).get("accounts") or {}
+        for pid, acc in current.items():
+            for key in SECRET_KEYS:
+                if isinstance(acc, dict) and acc.get(key):
+                    (snapshot.setdefault("providers", {}).setdefault("accounts", {})
+                     .setdefault(pid, {}))[key] = acc[key]
         # Replace runtime config (workspace / universe / providers / display)
         # but DO NOT touch the saves stores — they live in files now.
-        self._user_config = copy.deepcopy(snapshot)
+        self._user_config = snapshot
         self._save_user_config()
         log.info(f"Loaded profile: {name}")
         return True

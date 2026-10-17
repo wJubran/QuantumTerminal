@@ -97,6 +97,10 @@ export default {
           en: "Connect MetaTrader 5 from ⚙ Settings → PROVIDERS: TERMINAL PATH (leave it blank to auto-detect the default install) or LOGIN CREDENTIALS (server + login).",
           ar: "اربط MetaTrader 5 من ⚙ Settings ← PROVIDERS: إما TERMINAL PATH (اتركه فارغاً لاكتشاف التثبيت الافتراضي تلقائياً) أو LOGIN CREDENTIALS (السيرفر وبيانات الدخول).",
         },
+        {
+          en: "No MetaTrader 5? Pick Yahoo Finance or Binance in ⚙ Settings → DATA SOURCES (free, no account), or start with --provider yahoo, and trade on the paper account at live prices.",
+          ar: "لا يوجد لديك MetaTrader 5؟ اختر Yahoo Finance أو Binance من ⚙ Settings ← DATA SOURCES (مجاناً وبدون حساب)، أو شغّل المنصة بالخيار --provider yahoo، وتداول على الـ paper account بأسعار حية.",
+        },
       ],
     },
   ],
