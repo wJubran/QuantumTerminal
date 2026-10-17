@@ -1,9 +1,19 @@
-"""data_sync_client: configuration loading."""
+"""data_sync_client: configuration loading and cache file names."""
 
 import sys
 from pathlib import Path
 
 import data_sync_client
+
+
+def test_cache_filenames_map_to_ticker_and_category():
+    resolve = data_sync_client.resolve_cache_filename
+    assert resolve("EURUSD_bands") == ("EURUSD", "bands")
+    assert resolve("XAUUSD_quarterly_cones") == ("XAUUSD", "quarterly_cones")
+    assert resolve("US500_historical_cones") == ("US500", "historical_cones")
+    assert resolve("GLOBAL_eurusd_scalp_bands") == ("EURUSD", "scalp_bands")
+    assert resolve("GLOBAL_fundamentals") == ("GLOBAL", "fundamentals")
+    assert resolve("_sync_timestamps") is None
 
 
 def test_built_in_config_loads_without_an_ini_file(monkeypatch, tmp_path):
