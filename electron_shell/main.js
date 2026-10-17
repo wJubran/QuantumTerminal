@@ -397,7 +397,7 @@ ipcMain.handle("mk:fetch-trump-news", async (_event, opts) => {
   try {
     const url = "https://news.google.com/rss/search?q=Trump&hl=en-US&gl=US&ceid=US:en";
     const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 Quantum Terminal Consumer Terminal" },
+      headers: { "User-Agent": "Mozilla/5.0 Quantum Terminal" },
     });
     if (!res.ok) {
       return { ok: false, error: `HTTP ${res.status} from Google News` };

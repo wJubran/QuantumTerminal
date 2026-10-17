@@ -269,7 +269,7 @@ def main():
 
     print()
     print("=" * 50)
-    print("  Quantum Terminal Consumer Terminal")
+    print("  Quantum Terminal")
     print("=" * 50)
     if _log_file:
         print(f"  Logs   : {_log_file}")

@@ -50,6 +50,14 @@ def test_no_accounts_or_subscriptions(client):
     assert not {"authenticated", "user_email", "subscription_status"} & set(status)
 
 
+def test_missing_data_server_is_reported_as_such(client):
+    # The open-source edition ships no analysis data server: the UI must be
+    # able to tell "none configured" apart from "configured but offline".
+    assert client.get("/api/sync/status").json()["server_configured"] is False
+    assert client.get("/api/consumer/status").json()["server_configured"] is False
+    assert client.get("/api/regime/macro").status_code == 404
+
+
 def test_version_endpoint_offline(client):
     v = client.get("/api/version").json()   # MK_UPDATE_CHECK=0 in the test env
     assert v["current"] == v["latest"] and v["update_available"] is False
