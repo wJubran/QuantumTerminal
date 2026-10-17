@@ -26,7 +26,6 @@ def test_health_reports_the_simulator(client):
     assert h["status"] == "ok" and h["mt5_connected"] is True
     assert h["provider"] == {"type": "sim", "label": "Simulated Market (paper trading)",
                              "connected": True, "simulated": True}
-    assert h["components"]["license"]["status"] == "ok"
 
 
 def test_config_reflects_the_override(client):
@@ -43,10 +42,18 @@ def test_market_data_endpoints(client):
     assert client.get("/api/symbol-info/USDJPY").json()["digits"] == 3
 
 
-def test_ui_login_gate_gets_a_full_access_session(client):
-    s = client.get("/api/auth/status").json()
-    assert s["status"] == "ok" and s["subscription_status"] == "active" and s["subscription_type"] == "pro"
-    assert client.post("/api/auth/login", json={"email": "x", "password": "y"}).json()["status"] == "ok"
+def test_no_accounts_or_subscriptions(client):
+    assert client.get("/api/auth/status").status_code == 404
+    health = client.get("/api/health").json()
+    assert "license" not in health["components"]
+    status = client.get("/api/consumer/status").json()
+    assert not {"authenticated", "user_email", "subscription_status"} & set(status)
+
+
+def test_version_endpoint_offline(client):
+    v = client.get("/api/version").json()   # MK_UPDATE_CHECK=0 in the test env
+    assert v["current"] == v["latest"] and v["update_available"] is False
+    assert v["download_url"] == "https://github.com/wJubran/QuantumTerminal/releases"
 
 
 def test_paper_order_roundtrip(client):
