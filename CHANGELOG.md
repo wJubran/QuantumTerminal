@@ -6,7 +6,16 @@ Notable changes to Quantum Terminal. The format follows
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-10-17
+
 ### Added
+
+- **The OPTIONS QUANT page from public option chains:**
+  - US500, USTEC, XAUUSD, XAGUSD and XTIUSD from the SPY, QQQ, GLD, SLV and USO chains (yfinance);
+  - GEX, the gamma flip, walls, max pain, HVL, expected move, 25-delta skew, IV against realized vol,
+    put/call ratios, dealer scenarios, the structural and gravity ladders and the entropy card, for the
+    swing expiries and today's 0-DTE;
+  - levels moved into your feed's price space; refreshed every 15 minutes while New York trades.
 
 - **Market regimes computed by the terminal** (the REGIMES strip above the chart, and its shading):
   - **MICRO:** each instrument's volatility regime, calm to stressed, from a hidden Markov model on its
@@ -139,5 +148,6 @@ Initial public pre-release: the Python backend and the Electron shell as source,
 build.
 
 [Unreleased]: https://github.com/wJubran/QuantumTerminal/compare/v1.1.0...HEAD
+[1.2.0]: https://github.com/wJubran/QuantumTerminal/releases/tag/v1.2.0
 [1.1.0]: https://github.com/wJubran/QuantumTerminal/releases/tag/v1.1.0
 [0.1.0-alpha]: https://github.com/wJubran/QuantumTerminal/releases/tag/v0.1.0-alpha

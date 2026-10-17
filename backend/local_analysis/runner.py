@@ -1,4 +1,4 @@
-# version: v3
+# version: v4
 """
 Keeps the analysis cache's files up to date from the active feed, so the
 chart's CONES / BATES / QUARTERLY / BANDS overlays, the REGIMES strip, the
@@ -16,7 +16,9 @@ Pulse Room and the Replay page work without a data server.
   GLOBAL_regime_transitions.json) and the FUNDAMENTAL page's file
   (GLOBAL_fundamental_state.json: FRED liquidity, yields and VIX, CFTC COT,
   asset scores) and the MONEY FLOW page's (sector, country and asset-class
-  ETF performance and money-flow proxies, hourly).
+  ETF performance and money-flow proxies, hourly) and the OPTIONS QUANT
+  page's {T}_options.json from public ETF option chains (every 15 minutes
+  while New York trades, every 2 hours otherwise).
 - Files are stamped "producer": "quantum-terminal-local". A file written by
   any other producer is never overwritten.
 - The data source is part of each file's signature. After a switch
@@ -29,6 +31,7 @@ v2 — bands, the Replay page's files, eight quarterly anchors with
      meta.anchors, a Pulse Room rebuild after new live files.
 v3 — regimes (per asset and macro); a source switch starts a pass at once;
      the FUNDAMENTAL and MONEY FLOW pages' files.
+v4 — the OPTIONS QUANT page's files.
 """
 
 from __future__ import annotations
@@ -43,7 +46,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, Optional, Sequence, Tuple
 
-from . import bands, cones, cot, fred, fundamental, money_flow, regimes
+from . import bands, cones, cot, fred, fundamental, money_flow, options, regimes
 
 log = logging.getLogger("qt.local_analysis")
 
@@ -75,6 +78,9 @@ FUNDAMENTAL_VERSION = 1
 FUNDAMENTAL_REFRESH_SEC = 3600      # the asset scores follow prices
 MONEY_FLOW_VERSION = 1
 MONEY_FLOW_REFRESH_SEC = 3600
+OPTIONS_FILE = "{T}_options.json"
+OPTIONS_REFRESH_SEC = 900           # while New York trades
+OPTIONS_IDLE_SEC = 7200             # otherwise: overnight open-interest updates, the 0-DTE roll
 
 # (ticker, phase) → signature of the last build written (or found up to date) this run
 _built: Dict[Tuple[str, str], str] = {}
@@ -366,6 +372,88 @@ def update_money_flow(cache_dir: Optional[Path] = None, download=None, force: bo
     return bool(wrote)
 
 
+_options_note = {"logged": 0.0, "built": {}}
+
+
+def _broker_price(provider, ticker: str, when: Optional[float], now: float) -> Optional[float]:
+    """The feed's price for `ticker` at `when` (Unix time of the ETF quote):
+    the latest tick when the quote is recent, else the 5-minute bar then."""
+    live = None
+    try:
+        tick = (provider.get_latest_ticks([ticker]) or {}).get(ticker)
+    except Exception:
+        tick = None
+    if tick is not None:
+        bid, ask, last = (getattr(tick, k, None) for k in ("bid", "ask", "last"))
+        live = (bid + ask) / 2.0 if bid and ask else last
+    if when is not None and now - when > 600:
+        try:
+            bars = cones.normalize(provider.get_bars(ticker, "M5", min(2000, int((now - when) / 300) + 3)) or [])
+        except Exception:
+            bars = []
+        at = datetime.fromtimestamp(when, timezone.utc).replace(tzinfo=None)
+        before = [b for b in bars if b.time <= at]
+        if before and (at - before[-1].time).total_seconds() < 3600:
+            return before[-1].close
+    return live
+
+
+def update_options(provider, universe: Sequence[str] = (), cache_dir: Optional[Path] = None, fetch=None,
+                   force: bool = False, now: Optional[float] = None) -> list:
+    """Rebuild {T}_options.json for the universe tickers that have a public
+    ETF option chain (options.ASSETS, or the ETF itself) and a price on the
+    active feed. Returns the tickers written."""
+    if provider is None or not getattr(provider, "connected", False):
+        return []
+    cache_dir = cache_dir or _cache_dir()
+    now = time.time() if now is None else now
+    now_dt = datetime.fromtimestamp(now, timezone.utc).replace(tzinfo=None)
+    source = f"{getattr(provider, 'provider_type', '?')}:{getattr(provider, 'provider_id', '?')}"
+    every = OPTIONS_REFRESH_SEC if options.market_open(now_dt) else OPTIONS_IDLE_SEC
+    wrote = []
+    for ticker in [t.upper() for t in universe]:
+        etf = options.ASSETS.get(ticker) or (ticker if ticker in options.ASSETS.values() else None)
+        if etf is None:
+            continue
+        last = _options_note["built"].get(ticker)
+        if not force and last and last[0] == source and now - last[1] < every:
+            continue
+        path = cache_dir / OPTIONS_FILE.format(T=ticker)
+        existing = _read(path)
+        if existing is not None and existing.get("producer") != PRODUCER:
+            continue
+        _options_note["built"][ticker] = (source, now)
+        try:
+            data = (fetch or options.download_chain)(etf, now_dt)
+        except Exception as e:
+            data = None
+            if now - _options_note["logged"] > 3600:
+                _options_note["logged"] = now
+                log.info(f"Options chains unavailable: {e} (needs query2.finance.yahoo.com)")
+        if not data:
+            continue
+        price = _broker_price(provider, ticker, data.get("time"), now)
+        spot = data.get("spot")
+        if not price or not spot:
+            continue
+        previous = existing if existing is not None and existing.get("signature", "").startswith(source) else None
+        body = options.build(ticker, etf, data, price / float(spot), now_dt, previous)
+        if body is None:
+            continue
+        payload = {"producer": PRODUCER, "engine_version": ENGINE_VERSION, "ticker": ticker,
+                   "signature": f"{source}|{body['expiries'][0]}", **body}
+        _write_atomic(path, payload)
+        try:
+            from data_sync_client import get_sync_client
+            get_sync_client()._get_store("options")[ticker] = payload
+        except Exception:
+            pass
+        wrote.append(ticker)
+    if wrote:
+        log.info(f"Options levels rebuilt: {', '.join(wrote)}")
+    return wrote
+
+
 def _discard_other_sources(ticker: str, cache_dir: Path, source_id: str, phases: Sequence[str]) -> None:
     """The source has no bars for this ticker: remove our files for it that
     were built from another source's prices. Files of other producers, and
@@ -509,6 +597,25 @@ async def _money_flow_pass(broadcast_event: Optional[Callable]) -> bool:
     return wrote
 
 
+async def _options_pass(app_state, broadcast_event: Optional[Callable]) -> list:
+    cfg = getattr(app_state, "cfg_manager", None)
+    universe = cfg.get_active_universe() if cfg is not None else []
+    try:
+        wrote = await asyncio.to_thread(update_options, getattr(app_state, "provider", None), universe)
+    except asyncio.CancelledError:
+        raise
+    except Exception as e:
+        log.warning(f"Options build failed: {e}")
+        return []
+    if wrote and broadcast_event is not None:
+        try:
+            await broadcast_event({"type": "data_sync_complete", "source": "local_analysis",
+                                   "phase": "options", "synced": len(wrote), "tickers": wrote})
+        except Exception:
+            pass
+    return wrote
+
+
 async def run_loop(app_state, broadcast_event: Optional[Callable] = None,
                    interval: float = CHECK_INTERVAL_SEC) -> None:
     global _wake
@@ -522,6 +629,7 @@ async def run_loop(app_state, broadcast_event: Optional[Callable] = None,
         await _macro_pass(broadcast_event)
         await _fundamental_pass(app_state, broadcast_event)
         await _money_flow_pass(broadcast_event)
+        await _options_pass(app_state, broadcast_event)
         await _pass(app_state, "replay", broadcast_event)
         try:
             await asyncio.wait_for(_wake.wait(), timeout=interval)
