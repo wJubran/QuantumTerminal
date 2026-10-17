@@ -24,6 +24,7 @@
  * v4 — Open-source edition: removed the account / sign-out block (there are
  *   no accounts), the broker affiliate button (replaced by a pointer to the
  *   built-in simulated market) and the Telegram link (→ GitHub issues).
+ *   Maintenance shows DATA SERVER: NONE when no data server is configured.
  *
  * v3 (2026-05-11) — Tradovate POC removed. The feature was disqualified.
  *   Dropped: TRADOVATE_ENABLED flag, tv* state (tvConfig/tvStatus/tvBusy/
@@ -1332,9 +1333,13 @@ export default function SettingsPanel({ open, onClose, configHook, config }) {
               }}>
                 <div>LAST SYNC: <span style={{ color: C.white }}>{syncStatus?.last_synced_at || "—"}</span></div>
                 <div>ANALYSIS DATE: <span style={{ color: C.white }}>{syncStatus?.analysis_date || "—"}</span></div>
-                <div>OFFLINE MODE: <span style={{ color: syncStatus?.offline_mode ? C.red : C.green }}>
-                  {syncStatus?.offline_mode ? "YES" : "NO"}
-                </span></div>
+                {syncStatus?.server_configured === false ? (
+                  <div>DATA SERVER: <span style={{ color: C.white }}>NONE — LOCAL DATA FILES ONLY</span></div>
+                ) : (
+                  <div>OFFLINE MODE: <span style={{ color: syncStatus?.offline_mode ? C.red : C.green }}>
+                    {syncStatus?.offline_mode ? "YES" : "NO"}
+                  </span></div>
+                )}
                 <div>AUTO-POLL: <span style={{ color: C.white }}>
                   EVERY {pollConfig?.interval_seconds ? Math.round(pollConfig.interval_seconds / 60) : 5} MIN
                 </span></div>

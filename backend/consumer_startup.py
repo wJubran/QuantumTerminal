@@ -173,6 +173,7 @@ def wire_consumer_routes(app):
             sc = get_sync_client()
             status["synced_tickers"] = sc.synced_tickers
             status["offline_mode"] = sc.is_offline
+            status["server_configured"] = sc.server_configured
             status["format_version_ok"] = sc.format_version_ok
             status["sync_in_progress"] = sc.is_syncing   # drives the top-bar pill
             status["last_synced_at"] = sc.last_synced_at
@@ -183,6 +184,7 @@ def wire_consumer_routes(app):
         except Exception:
             status["synced_tickers"] = []
             status["offline_mode"] = True
+            status["server_configured"] = False
             status["sync_in_progress"] = False
 
         return status

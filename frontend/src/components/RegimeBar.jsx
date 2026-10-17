@@ -1,7 +1,10 @@
-// version: v7
+// version: v8
 /**
  * RegimeBar.jsx — Macro + Micro HMM Regime Status Strip
  * Quantum Terminal | Display-Only (Rule C1)
+ *
+ * v8 — A 404 from /api/regime/* reads "— no data" (macro used to show
+ *      "loading…" forever when no regime file exists).
  *
  * v7 — `forceMacroOn` / `forceMicroOn` props. When true, override the
  *      internal showMacro/showMicro toggles so the macro/micro payload
@@ -222,6 +225,7 @@ function Pill({ color, children }) {
 export default function RegimeBar({ selectedTicker, onRegimeHistory, playTime = null, forceMacroOn = false, forceMicroOn = false }) {
   // ── Data ──
   const [macroData, setMacroData] = useState(null);
+  const [macroMissing, setMacroMissing] = useState(false);  // true on 404
   const [microData, setMicroData] = useState(null);
   const [microMissing, setMicroMissing] = useState(false);  // true on 404
 
@@ -268,9 +272,9 @@ export default function RegimeBar({ selectedTicker, onRegimeHistory, playTime = 
     const load = async () => {
       try {
         const r = await fetch("/api/regime/macro");
-        if (!r.ok) { if (!cancelled) setMacroData(null); return; }
+        if (!r.ok) { if (!cancelled) { setMacroData(null); setMacroMissing(r.status === 404); } return; }
         const d = await r.json();
-        if (!cancelled) setMacroData(d);
+        if (!cancelled) { setMacroData(d); setMacroMissing(false); }
       } catch { if (!cancelled) setMacroData(null); }
     };
     load();
@@ -426,6 +430,8 @@ export default function RegimeBar({ selectedTicker, onRegimeHistory, playTime = 
           </Pill>
         ) : macroOutOfRange ? (
           <span style={{ fontSize: 8, color: C.muted, fontStyle: "italic" }}>before history</span>
+        ) : macroMissing ? (
+          <span style={{ fontSize: 8, color: C.muted, fontStyle: "italic" }}>— no data</span>
         ) : (
           <span style={{ fontSize: 8, color: C.muted, fontStyle: "italic" }}>loading…</span>
         )}
@@ -437,7 +443,7 @@ export default function RegimeBar({ selectedTicker, onRegimeHistory, playTime = 
           {selectedTicker} MICRO{!isLiveMode ? " @ PLAYHEAD" : ""}
         </span>
         {microMissing ? (
-          <span style={{ fontSize: 8, color: C.muted, fontStyle: "italic" }}>— not enabled</span>
+          <span style={{ fontSize: 8, color: C.muted, fontStyle: "italic" }}>— no data</span>
         ) : microRegime ? (
           <>
             <Pill color={MICRO_COLORS[microRegime] || C.gray}>
@@ -504,7 +510,7 @@ export default function RegimeBar({ selectedTicker, onRegimeHistory, playTime = 
       <div style={{ position: "relative", display: "inline-flex", gap: 2, flexShrink: 0 }}>
         <button onClick={() => setShowMicro(p => !p)}
           disabled={microMissing}
-          title={microMissing ? "Micro regime not enabled for this ticker" : "Toggle micro regime background shading + hazard"}
+          title={microMissing ? "No micro regime data for this ticker" : "Toggle micro regime background shading + hazard"}
           style={{ ...btnStyle(showMicro, C.cyan), opacity: microMissing ? 0.35 : 1, cursor: microMissing ? "not-allowed" : "pointer" }}>
           ◉ MICRO
         </button>

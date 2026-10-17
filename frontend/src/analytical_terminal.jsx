@@ -3,6 +3,8 @@
 //       "QUANTUM TERMINAL"; removed the subscription TierBadge, PRO badges
 //       and the commercial User Messages inbox (its server does not exist in
 //       the open-source build) — the Debug ⊡ button it had replaced is back.
+//       With no analysis data server configured (the open-source default)
+//       the status reads SERVER ○ NONE / ○ LOCAL DATA instead of an error.
 // v28 — User Messages inbox (2026-05-13). Added MessagesButton (envelope ✉
 //       chrome button, replacing the Debug ⊡ button visually) + MessagesModal
 //       + useUserMessages hook. Unread badge (red dot), shake animation on new
@@ -1088,6 +1090,11 @@ function MainTerminal() {
   });
 
   // ── Staleness display helpers (Rule C4) ──
+  // No analysis data server configured (the open-source default): show a
+  // neutral status instead of an offline error.
+  const noDataServer = syncStatus?.server_configured === false;
+  const noDataServerHint = "No analysis data server configured — analysis overlays use local data files only";
+  const hasDataDate = !!(syncStatus?.last_synced_at || (syncStatus?.analysis_date && syncStatus.analysis_date !== "N/A"));
   const stalenessColor = syncStatus?.staleness_level === "error" ? C.red
     : syncStatus?.staleness_level === "warning" ? C.amber
     : syncStatus?.staleness_level === "fresh" ? C.green
@@ -1116,9 +1123,13 @@ function MainTerminal() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {/* ── Server & Data Status ── */}
           <span style={{ fontSize: "8px", color: C.muted, letterSpacing: "0.5px" }}>SERVER</span>
-          <span style={{ fontSize: "8px", color: syncStatus?.offline_mode ? C.red : C.green, fontWeight: 700 }}>
-            {syncStatus?.offline_mode ? "● OFFLINE" : "● ONLINE"}
-          </span>
+          {noDataServer ? (
+            <span title={noDataServerHint} style={{ fontSize: "8px", color: C.gray, fontWeight: 700 }}>○ NONE</span>
+          ) : (
+            <span style={{ fontSize: "8px", color: syncStatus?.offline_mode ? C.red : C.green, fontWeight: 700 }}>
+              {syncStatus?.offline_mode ? "● OFFLINE" : "● ONLINE"}
+            </span>
+          )}
 
           {/* v13: download progress bar + post-sync REFRESH prompt */}
           {syncStatus?.sync_in_progress && (() => {
@@ -1170,7 +1181,7 @@ function MainTerminal() {
           )}
           <span style={{color:C.border}}>|</span>
           <span style={{ fontSize: "8px", color: C.muted, letterSpacing: "0.5px" }}>DATA</span>
-          <span style={{ fontSize: "8px", color: stalenessColor, fontWeight: 700 }}>
+          <span style={{ fontSize: "8px", color: hasDataDate ? stalenessColor : C.muted, fontWeight: 700 }}>
             {syncStatus?.last_synced_at || syncStatus?.analysis_date || "N/A"}
           </span>
           {syncStatus?.staleness_level === "warning" && <span style={{ fontSize: "7px", color: C.amber }}>⚠</span>}
@@ -1255,12 +1266,13 @@ function MainTerminal() {
           const staleWarn = syncStatus?.staleness_level === "warning";
           let label, color, bg, border;
           if (syncing)        { label = "⟳ SYNCING DATA"; color = C.orange; bg = `${C.orange}20`; border = `${C.orange}60`; }
+          else if (noDataServer) { label = "○ LOCAL DATA"; color = C.gray;   bg = "transparent";  border = C.border; }
           else if (offline)   { label = "✕ OFFLINE";      color = C.red;    bg = `${C.red}15`;    border = `${C.red}50`; }
           else if (staleErr)  { label = "⚠ STALE";        color = C.red;    bg = `${C.red}15`;    border = `${C.red}50`; }
           else if (staleWarn) { label = "⚠ STALE";        color = C.amber;  bg = `${C.amber}18`;  border = `${C.amber}55`; }
           else                { label = "● DATA READY";   color = C.green;  bg = `${C.green}15`;  border = `${C.green}50`; }
           return (
-            <span title={`Last sync: ${syncStatus?.last_synced_at || syncStatus?.analysis_date || "—"}`} style={{
+            <span title={noDataServer && !syncing ? noDataServerHint : `Last sync: ${syncStatus?.last_synced_at || syncStatus?.analysis_date || "—"}`} style={{
               padding: "2px 8px", background: bg,
               border: `1px solid ${border}`,
               color, fontSize: "7px", fontWeight: 800, letterSpacing: "1.2px",
@@ -1552,7 +1564,7 @@ function MainTerminal() {
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           {/* ── Data freshness (Rule C4) ── */}
-          {syncStatus?.offline_mode && (
+          {syncStatus?.offline_mode && !noDataServer && (
             <span style={{ color: C.amber, fontWeight: 700, letterSpacing: "1px" }}>
               ⚠ OFFLINE MODE — using cached data
             </span>
