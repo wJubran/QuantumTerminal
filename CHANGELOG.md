@@ -30,6 +30,14 @@ Notable changes to Quantum Terminal. The format follows
 
   Downloads are cached, so the page keeps the latest data offline. The page now shows how old its data
   is. A Learning Center article explains each card.
+- **The MONEY FLOW page works without a data server.** It is rebuilt hourly from daily ETF prices and
+  volumes (Yahoo Finance):
+  - US sector ETFs and country ETFs over 1 and 4 weeks;
+  - arcs from the weakest markets to the strongest;
+  - a CAPITAL FLOWS map of seven asset classes. Their net flow is a stated proxy (return × dollar volume
+    of representative ETFs), not reported fund flows.
+
+  Tickers that can't be downloaded are left out instead of being shown as flat.
 - **Five more data sources**, picked in *Settings → DATA SOURCES* (with TEST and USE buttons) while the
   terminal runs, or with `python launcher.py --provider <type>`:
   - **Yahoo Finance**: free, no account. Forex; metals, energy, grain, soft and livestock futures;

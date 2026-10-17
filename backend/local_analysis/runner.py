@@ -15,7 +15,8 @@ Pulse Room and the Replay page work without a data server.
   plus the macro regime from FRED data (GLOBAL_macro_regime.json,
   GLOBAL_regime_transitions.json) and the FUNDAMENTAL page's file
   (GLOBAL_fundamental_state.json: FRED liquidity, yields and VIX, CFTC COT,
-  asset scores).
+  asset scores) and the MONEY FLOW page's (sector, country and asset-class
+  ETF performance and money-flow proxies, hourly).
 - Files are stamped "producer": "quantum-terminal-local". A file written by
   any other producer is never overwritten.
 - The data source is part of each file's signature. After a switch
@@ -27,7 +28,7 @@ Pulse Room and the Replay page work without a data server.
 v2 — bands, the Replay page's files, eight quarterly anchors with
      meta.anchors, a Pulse Room rebuild after new live files.
 v3 — regimes (per asset and macro); a source switch starts a pass at once;
-     the FUNDAMENTAL page's file.
+     the FUNDAMENTAL and MONEY FLOW pages' files.
 """
 
 from __future__ import annotations
@@ -42,7 +43,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, Optional, Sequence, Tuple
 
-from . import bands, cones, cot, fred, fundamental, regimes
+from . import bands, cones, cot, fred, fundamental, money_flow, regimes
 
 log = logging.getLogger("qt.local_analysis")
 
@@ -72,6 +73,8 @@ TRANSITIONS_FILE = "GLOBAL_regime_transitions.json"
 FUNDAMENTAL_FILE = "GLOBAL_fundamental_state.json"
 FUNDAMENTAL_VERSION = 1
 FUNDAMENTAL_REFRESH_SEC = 3600      # the asset scores follow prices
+MONEY_FLOW_VERSION = 1
+MONEY_FLOW_REFRESH_SEC = 3600
 
 # (ticker, phase) → signature of the last build written (or found up to date) this run
 _built: Dict[Tuple[str, str], str] = {}
@@ -315,6 +318,54 @@ def update_fundamental(provider=None, universe: Sequence[str] = (), cache_dir: O
     return True
 
 
+_money_note = {"logged": 0.0, "built_at": 0.0}
+
+
+def update_money_flow(cache_dir: Optional[Path] = None, download=None, force: bool = False,
+                      now: Optional[float] = None) -> bool:
+    """Rebuild the MONEY FLOW page's four files from daily ETF prices and
+    volumes (yfinance), at most every MONEY_FLOW_REFRESH_SEC. True when a
+    file was written. Files of another producer are left alone."""
+    cache_dir = cache_dir or _cache_dir()
+    now = time.time() if now is None else now
+    if not force and now - _money_note["built_at"] < MONEY_FLOW_REFRESH_SEC:
+        return False
+    try:
+        data = (download or money_flow.download_daily)(money_flow.all_tickers())
+    except Exception as e:
+        data = {}
+        if now - _money_note["logged"] > 3600:
+            _money_note["logged"] = now
+            log.info(f"Money flow unavailable: {e} (needs query1.finance.yahoo.com)")
+    _money_note["built_at"] = now
+    if not data:
+        return False
+    files = money_flow.build(data, _read(cache_dir / FUNDAMENTAL_FILE))
+    computed = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    stamp = {"producer": PRODUCER, "engine_version": ENGINE_VERSION, "computed_at": computed,
+             "updated_at": now, "data_to": str(money_flow.last_day(data))}
+    wrote = []
+    for name, body in files.items():
+        path = cache_dir / name
+        theirs = _read(path)
+        if theirs is not None and theirs.get("producer") != PRODUCER:
+            continue
+        if name == "GLOBAL_macro_sector_flows.json":
+            body = {k: {**v, "computed_at": computed} for k, v in body.items()}
+        payload = {**stamp, **body}
+        _write_atomic(path, payload)
+        wrote.append(name)
+        if name == "GLOBAL_macro_sector_flows.json":
+            try:
+                from data_sync_client import get_sync_client
+                get_sync_client()._get_store("macro_sector_flows")["GLOBAL"] = payload
+            except Exception:
+                pass
+    if wrote:
+        log.info(f"Money flow rebuilt: {', '.join(wrote)} (data to {stamp['data_to']})")
+    return bool(wrote)
+
+
 def _discard_other_sources(ticker: str, cache_dir: Path, source_id: str, phases: Sequence[str]) -> None:
     """The source has no bars for this ticker: remove our files for it that
     were built from another source's prices. Files of other producers, and
@@ -441,6 +492,23 @@ async def _fundamental_pass(app_state, broadcast_event: Optional[Callable]) -> b
     return wrote
 
 
+async def _money_flow_pass(broadcast_event: Optional[Callable]) -> bool:
+    try:
+        wrote = await asyncio.to_thread(update_money_flow)
+    except asyncio.CancelledError:
+        raise
+    except Exception as e:
+        log.warning(f"Money flow build failed: {e}")
+        return False
+    if wrote and broadcast_event is not None:
+        try:
+            await broadcast_event({"type": "data_sync_complete", "source": "local_analysis",
+                                   "phase": "money_flow", "synced": 4, "tickers": []})
+        except Exception:
+            pass
+    return wrote
+
+
 async def run_loop(app_state, broadcast_event: Optional[Callable] = None,
                    interval: float = CHECK_INTERVAL_SEC) -> None:
     global _wake
@@ -453,6 +521,7 @@ async def run_loop(app_state, broadcast_event: Optional[Callable] = None,
         await _pass(app_state, "regime", broadcast_event)
         await _macro_pass(broadcast_event)
         await _fundamental_pass(app_state, broadcast_event)
+        await _money_flow_pass(broadcast_event)
         await _pass(app_state, "replay", broadcast_event)
         try:
             await asyncio.wait_for(_wake.wait(), timeout=interval)
