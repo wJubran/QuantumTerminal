@@ -68,7 +68,7 @@ key and no paywall. For live prices without a broker, start with `python launche
 | **Memory** | 4 GB of RAM | The backend itself uses about 150 MB |
 | **Disk space** | About 1 GB free | The Python packages take about 500 MB |
 | **Browser** | A current Chrome, Edge, Firefox or Safari | Or use the desktop app instead |
-| **Internet** | To install; afterwards for the live data sources, the macro regime (FRED) and the update check | The simulated market and CSV files work offline |
+| **Internet** | To install; afterwards for the live data sources, the macro data (FRED, CFTC) and the update check | The simulated market and CSV files work offline |
 | **MetaTrader 5** *(optional)* | The MT5 desktop terminal from your broker, logged in to an account (a demo account is fine) | Windows only. One way to get real prices and place live orders; see [Data sources](#data-sources) for the others |
 | **Node.js** *(optional)* | 20 or newer | Only for the desktop app or to rebuild the UI |
 | **Git** *(optional)* | Any version | Or download the code as a ZIP file |
@@ -225,6 +225,7 @@ electron-builder to distribute it.
 | **Replay** | Plays back past weekly, monthly and quarterly cones and the daily bands against price, bar by bar |
 | **Pulse Room** | Scanner that ranks your watchlist by where price sits inside its cones and bands |
 | **Regimes** | Each instrument's volatility regime (calm → stressed) from a walk-forward HMM, a 15-minute volatility alarm, and the macro growth/inflation quadrant from FRED data ([how](#how-the-regimes-are-computed)) |
+| **Fundamental** | Macro dashboard from public data: the regime quadrant, Fed net liquidity, the yield curve, the VIX, CFTC futures positioning and a score per instrument ([how](#how-the-fundamental-page-is-built)) |
 | **Live charts** | TradingView Lightweight Charts, M1 to D1, several charts in tabs, drawing tools, chart templates, crosshair price/time readout, world clock with trading sessions |
 | **Order entry** | Market, limit and stop orders with stop loss / take profit, and a live risk / reward preview in money and in % of the balance |
 | **Positions** | Open positions with risk, reward and P&L; drag SL/TP lines on the chart, or edit and close from the table; account exposure strip |
@@ -240,13 +241,13 @@ electron-builder to distribute it.
 | Panel | What it shows |
 |---|---|
 | **Options Quant** | Gamma exposure (GEX), call/put walls, max pain and dealer positioning |
-| **Fundamental · Money Flow** | Macro dashboard, and sector, country and asset-class rotation |
+| **Money Flow** | Sector, country and asset-class rotation |
 | **Options Cockpit** | The options view in Stress Lab |
 
 These panels read pre-computed analysis files from the same local cache the cones and bands are written
 to. **This repository does not produce them yet**, so out of the box they stay empty, and the header
 shows `SERVER ○ NONE` because no data server is configured. Extending the local engine to options
-levels and the macro pages is the top item on the [roadmap](#roadmap).
+levels and the Money Flow page is the top item on the [roadmap](#roadmap).
 
 ## Data sources
 
@@ -443,6 +444,24 @@ rebuilt once per trading day and the alarm with every new 15-minute bar. Turn th
 **MACRO** or **MICRO** above the chart; the ▾ next to each sets the opacity, hides states or paints the
 candles.
 
+## How the Fundamental page is built
+
+The **FUNDAMENTAL** page is built by the terminal from free public data
+(`backend/local_analysis/fundamental.py`, `cot.py`):
+
+| Card | Data | Notes |
+|---|---|---|
+| **Macro regime** | The MACRO quadrant (S&P 500, 10-year breakeven, WTI from FRED) | Probability, the label 30 days ago, and a 12-month trail on the growth/inflation map |
+| **Net liquidity** | Fed balance sheet (`WALCL`) − Treasury General Account (`WTREGEN`) − reverse repo (`RRPONTSYD`) | Weekly, with the Fed's rate changes (`DFEDTARU`) marked |
+| **Yield curve, 2s10s** | 2/5/10/30-year yields (`DGS2`…`DGS30`), now and 3 months ago | Also the 10-year real yield (`DFII10`) and fed funds (`DFF`) |
+| **VIX** | `VIXCLS` | Above 25 is fear, below 18 is calm |
+| **COT positioning** | CFTC Commitments of Traders, speculators' net position | A z-score against the last three years; ±1.5 is crowded |
+| **Asset scorecard** | Your data source's daily bars | −100…+100: the regime's rule of thumb for the asset class (40%), the price vs its 200-day average (30%), the 3-month change (30%) |
+
+It needs internet access to `fred.stlouisfed.org` and `publicreporting.cftc.gov`. Downloads are cached
+(FRED for 6 hours, COT for 12), so the page keeps the latest data while offline, and a card whose data
+was never fetched is left out. The asset scores are refreshed every hour.
+
 ## How it works
 
 ```mermaid
@@ -457,7 +476,7 @@ flowchart LR
     CACHE[("Analysis cache<br/>JSON files")]
     feeds --> API["Python backend<br/>FastAPI · 127.0.0.1:8502"]
     API -- "daily bars" --> ENGINE["Local analysis<br/>cones · bands · regimes"]
-    FRED["FRED<br/>(macro data)"] --> ENGINE
+    FRED["FRED · CFTC<br/>(macro data)"] --> ENGINE
     ENGINE --> CACHE
     CACHE --> API
     API -- "REST + WebSocket" --> UI["React UI<br/>frontend/"]
@@ -477,7 +496,7 @@ QuantumTerminal/
 │   ├── launcher.py          entry point: config, UI serving, command-line options
 │   ├── data_server.py       REST API + WebSocket price streams
 │   ├── providers/           data sources (MT5, Yahoo, Binance, OANDA, Alpaca, CSV, Rithmic), simulator, paper account
-│   ├── local_analysis/      cones, bands, regimes and Replay files from the feed's bars
+│   ├── local_analysis/      cones, bands, regimes, Replay files and the Fundamental page
 │   ├── security.py          local-only API guard (cross-site / DNS-rebinding protection)
 │   └── tests/               pytest suite — runs without a broker
 ├── frontend/                React source of the UI (Create React App)
@@ -532,8 +551,8 @@ Found a vulnerability? Please report it privately; see [SECURITY.md](SECURITY.md
 
 ## Roadmap
 
-- **Local quant engine, next steps** — the cones, bands and regimes are computed locally; options levels
-  and the macro pages are next, so every panel works without a data server.
+- **Local quant engine, next steps** — the cones, bands, regimes and the Fundamental page are computed
+  locally; options levels and the Money Flow page are next, so every panel works without a data server.
 - **More brokers** — Interactive Brokers, and orders on Alpaca, through the provider interface. A
   data source is about 100 lines: see `providers/binance_provider.py`.
 - **Translations** — the Learning Center already supports English and Arabic; the rest of the UI is
@@ -573,6 +592,8 @@ Finance may be delayed.
 - **الـ Regimes:** حالة التقلب لكل أداة من الهدوء (calm) إلى الضغط (stressed)، وتنبيه IMMINENT عند توقّع
   انفجار في التقلب خلال ساعتين، وربع الاقتصاد الكلي (GOLDILOCKS وREFLATION وSTAGFLATION وDEFLATION) من
   بيانات FRED، وكلها دون النظر إلى المستقبل.
+- **صفحة Fundamental:** حالة الاقتصاد الكلي، وصافي سيولة الفيدرالي، ومنحنى العوائد، ومؤشر VIX، ومراكز المضاربين
+  في العقود الآجلة (CFTC COT)، ودرجة لكل أداة، من بيانات عامة مجانية.
 - **شارت حي:** من M1 إلى D1، عدة شارتات في تبويبات، أدوات رسم، قوالب، وساعة عالمية بجلسات التداول.
 - **الأوامر والصفقات:** أوامر market وlimit وstop مع SL/TP، ومعاينة فورية للمخاطرة والعائد، وسحب خطوط
   SL/TP على الشارت.
@@ -585,8 +606,8 @@ Finance may be delayed.
 - **الأمان:** السيرفر محلي فقط، ولا تستطيع أي صفحة ويب تزورها إرسال أوامر عبر منصتك، ومفاتيح الـ API لا
   تغادر جهازك إلا إلى مصدرها.
 
-لوحات Options Quant وFundamental وMoney Flow تحتاج بيانات تحليل محسوبة مسبقاً لا ينتجها المستودع بعد،
-فتبقى فارغة حالياً. التفاصيل في [النسخة العربية الكاملة](README.ar.md).
+لوحتا Options Quant وMoney Flow تحتاجان بيانات تحليل محسوبة مسبقاً لا ينتجها المستودع بعد، فتبقيان فارغتين
+حالياً. التفاصيل في [النسخة العربية الكاملة](README.ar.md).
 
 ### المتطلبات
 
@@ -597,7 +618,7 @@ Finance may be delayed.
 | **الذاكرة** | ذاكرة بسعة 4 غيغابايت | الـ backend نفسه يستهلك نحو 150 ميغابايت |
 | **مساحة القرص** | نحو 1 غيغابايت فارغة | حزم Python تأخذ نحو 500 ميغابايت |
 | **المتصفح** | نسخة حديثة من Chrome أو Edge أو Firefox أو Safari | أو استخدم تطبيق سطح المكتب بدلاً منه |
-| **الإنترنت** | للتثبيت، ثم لمصادر البيانات الحية والـ regime الكلي (FRED) والتحقق من التحديثات | السوق المحاكى وملفات CSV تعمل دون إنترنت |
+| **الإنترنت** | للتثبيت، ثم لمصادر البيانات الحية وبيانات الاقتصاد الكلي (FRED وCFTC) والتحقق من التحديثات | السوق المحاكى وملفات CSV تعمل دون إنترنت |
 | **MetaTrader 5** ‏(اختياري) | منصة MT5 من وسيطك، مع تسجيل الدخول إلى حساب (الحساب التجريبي يكفي) | على Windows فقط، وهي إحدى طرق الحصول على أسعار حقيقية وإرسال أوامر حية، والطرق الأخرى في [مصادر البيانات](#مصادر-البيانات) |
 | **Node.js** ‏(اختياري) | الإصدار 20 أو أحدث | فقط لتطبيق سطح المكتب أو لإعادة بناء الواجهة |
 | **Git** ‏(اختياري) | أي إصدار | أو حمّل الكود كملف ZIP |
