@@ -15,12 +15,18 @@ Usage:
 """
 
 import configparser
+import os
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 
 # ── Portable project root (Rule 3) ──
 PROJECT_ROOT = Path(__file__).resolve().parent
+
+
+def _env_list(name: str) -> List[str]:
+    """Comma-separated env var → list of non-empty, stripped entries."""
+    return [v.strip() for v in os.environ.get(name, "").split(",") if v.strip()]
 
 
 # ── Load local_config.ini for machine-specific values (Rule 3) ──
@@ -122,7 +128,7 @@ class ServerConfig:
 
     # ── Network ──
     host: str = "127.0.0.1"
-    port: int = 8501
+    port: int = field(default_factory=lambda: int(os.environ.get("MK_PORT", "8502")))
 
     # ── MT5 ──
     mt5_terminal_path: Optional[str] = field(default_factory=lambda: MT5_TERMINAL_PATH)
@@ -146,10 +152,20 @@ class ServerConfig:
     default_lookback_bars: int = 200
 
     # ── Frontend CORS ──
+    # Cross-origin callers allowed to use the API (the React dev server).
+    # The UI served by this process is same-origin and needs no entry.
+    # Add more with MK_CORS_ORIGINS="http://host:port,http://other:port".
     cors_origins: List[str] = field(default_factory=lambda: [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-    ])
+    ] + _env_list("MK_CORS_ORIGINS"))
+
+    # ── Host header allow-list (DNS-rebinding protection) ──
+    # Loopback only by default. Serving on a LAN address? Add it with
+    # MK_ALLOWED_HOSTS="192.168.1.20" (or "*" to disable the check).
+    allowed_hosts: List[str] = field(default_factory=lambda: [
+        "127.0.0.1", "localhost", "::1",
+    ] + _env_list("MK_ALLOWED_HOSTS"))
 
     # ── Reconnection ──
     mt5_reconnect_delay: float = 5.0      # Seconds between reconnect attempts

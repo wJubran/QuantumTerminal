@@ -154,6 +154,83 @@ def open_browser():
     webbrowser.open(f"http://127.0.0.1:{PORT}")
 
 
+def mount_frontend(app, frontend_dir: Path) -> bool:
+    """Serve the React build from `frontend_dir` on `app`. False if absent.
+
+    IMPORTANT: Use StaticFiles mount (not catch-all routes) so API routes
+    always take priority. The catch-all @app.get("/{path}") pattern causes
+    405 errors on PATCH/POST to /api/* endpoints.
+    """
+    if not (frontend_dir.exists() and (frontend_dir / "index.html").exists()):
+        return False
+
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import FileResponse
+    from starlette.middleware.base import BaseHTTPMiddleware
+
+    root = frontend_dir.resolve()
+
+    # Helper: serve index.html with no-cache headers so browser
+    # always fetches the latest after an update. JS/CSS files have
+    # content hashes in their filenames so they cache safely.
+    def _serve_index():
+        return FileResponse(
+            str(root / "index.html"),
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
+
+    # Serve /static/* assets (JS, CSS, images)
+    app.mount("/static", StaticFiles(directory=str(root / "static")), name="static")
+
+    # SPA middleware: for non-API, non-static GET requests that don't match
+    # a file, serve index.html. This replaces the old @app.get("/{full_path:path}")
+    # catch-all which caused 405 errors on API PATCH/POST requests.
+    class SPAMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            response = await call_next(request)
+
+            # If the API returned 404 and this is a GET request
+            # that doesn't target /api/ or /ws/, serve index.html
+            # (React client-side routing)
+            if (
+                response.status_code == 404
+                and request.method == "GET"
+                and not request.url.path.startswith("/api/")
+                and not request.url.path.startswith("/ws/")
+                and not request.url.path.startswith("/static/")
+            ):
+                # A real file in the build directory (sounds, manifest...).
+                # Resolved and confined to the build dir: "/../.." paths
+                # must not read arbitrary files off the disk.
+                file_path = (root / request.url.path.lstrip("/")).resolve()
+                if file_path.is_relative_to(root) and file_path.is_file():
+                    return FileResponse(str(file_path))
+                # Otherwise serve index.html for React Router
+                return _serve_index()
+
+            return response
+
+    app.add_middleware(SPAMiddleware)
+
+    # Root route — serve index.html
+    @app.get("/", include_in_schema=False)
+    async def serve_root():
+        return _serve_index()
+
+    # Favicon
+    favicon_path = root / "favicon.ico"
+    if favicon_path.exists():
+        @app.get("/favicon.ico", include_in_schema=False)
+        async def serve_favicon():
+            return FileResponse(str(favicon_path))
+
+    return True
+
+
 def main():
     # v2 Phase D: persistent rotating log file under %APPDATA%\<APP_DIR>\logs\.
     #   Console behavior unchanged; file logging is additive.
@@ -214,72 +291,8 @@ def main():
     from data_server import app
 
     # Serve React build as static files (production mode)
-    # IMPORTANT: Use StaticFiles mount (not catch-all routes) so API routes
-    # always take priority. The catch-all @app.get("/{path}") pattern causes
-    # 405 errors on PATCH/POST to /api/* endpoints.
-    if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
-        from fastapi.staticfiles import StaticFiles
-        from fastapi.responses import FileResponse
-        from starlette.middleware.base import BaseHTTPMiddleware
-        from starlette.responses import Response as StarletteResponse
-
-        # Helper: serve index.html with no-cache headers so browser
-        # always fetches the latest after an update. JS/CSS files have
-        # content hashes in their filenames so they cache safely.
-        def _serve_index():
-            return FileResponse(
-                str(FRONTEND_DIR / "index.html"),
-                headers={
-                    "Cache-Control": "no-cache, no-store, must-revalidate",
-                    "Pragma": "no-cache",
-                    "Expires": "0",
-                },
-            )
-
-        # Serve /static/* assets (JS, CSS, images)
-        app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR / "static")), name="static")
-
-        # SPA middleware: for non-API, non-static GET requests that don't match
-        # a file, serve index.html. This replaces the old @app.get("/{full_path:path}")
-        # catch-all which caused 405 errors on API PATCH/POST requests.
-        class SPAMiddleware(BaseHTTPMiddleware):
-            async def dispatch(self, request, call_next):
-                response = await call_next(request)
-
-                # If the API returned 404 and this is a GET request
-                # that doesn't target /api/ or /ws/, serve index.html
-                # (React client-side routing)
-                if (
-                    response.status_code == 404
-                    and request.method == "GET"
-                    and not request.url.path.startswith("/api/")
-                    and not request.url.path.startswith("/ws/")
-                    and not request.url.path.startswith("/static/")
-                ):
-                    # Check if it's a real file in the build directory
-                    file_path = FRONTEND_DIR / request.url.path.lstrip("/")
-                    if file_path.exists() and file_path.is_file():
-                        return FileResponse(str(file_path))
-                    # Otherwise serve index.html for React Router
-                    return _serve_index()
-
-                return response
-
-        app.add_middleware(SPAMiddleware)
-
-        # Root route — serve index.html
-        @app.get("/", include_in_schema=False)
-        async def serve_root():
-            return _serve_index()
-
-        # Favicon
-        favicon_path = FRONTEND_DIR / "favicon.ico"
-        if favicon_path.exists():
-            @app.get("/favicon.ico", include_in_schema=False)
-            async def serve_favicon():
-                return FileResponse(str(favicon_path))
-
-        print("  Frontend: serving React build")
+    if mount_frontend(app, FRONTEND_DIR):
+        print(f"  Frontend: serving React build ({FRONTEND_DIR})")
     else:
         print("  Frontend: not found — use npm start for dev mode")
 
