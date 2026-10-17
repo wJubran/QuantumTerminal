@@ -50,6 +50,17 @@ def _load_aliases():
     except ImportError:
         log.info("server_config not found — symbol aliases unavailable in MT5Fetcher")
 
+def _mt5():
+    """MetaTrader5 through the server's thread-safe proxy (backend/mt5_safe.py)
+    so fetches never interleave with the live tick loops. Raises
+    ModuleNotFoundError when the package isn't installed, like a plain import."""
+    import sys
+    backend_dir = str(Path(__file__).resolve().parent.parent.parent)
+    if backend_dir not in sys.path:
+        sys.path.insert(0, backend_dir)
+    from mt5_safe import require_mt5
+    return require_mt5()
+
 # ── MT5 timeframe mapping ────────────────────────────────────────────────────
 _TF_MAP = {}  # Populated lazily after mt5 import
 
@@ -60,7 +71,7 @@ def _ensure_tf_map():
     if _TF_MAP:
         return
     try:
-        import MetaTrader5 as mt5
+        mt5 = _mt5()
         _TF_MAP.update({
             "M1":  mt5.TIMEFRAME_M1,
             "M2":  mt5.TIMEFRAME_M2,
@@ -120,7 +131,7 @@ class MT5Fetcher(BaseFetcher):
         _load_aliases()
 
         try:
-            import MetaTrader5 as mt5
+            mt5 = _mt5()
 
             # Try canonical name first
             info = mt5.symbol_info(canonical)
@@ -160,7 +171,7 @@ class MT5Fetcher(BaseFetcher):
             self._initialized = True
             return True
         try:
-            import MetaTrader5 as mt5
+            mt5 = _mt5()
             kwargs = {}
             if self.terminal_path:
                 kwargs["path"] = self.terminal_path
@@ -197,7 +208,7 @@ class MT5Fetcher(BaseFetcher):
             return None
 
         try:
-            import MetaTrader5 as mt5
+            mt5 = _mt5()
 
             broker_sym = self._resolve_symbol(symbol)
 
@@ -237,7 +248,7 @@ class MT5Fetcher(BaseFetcher):
             return None
 
         try:
-            import MetaTrader5 as mt5
+            mt5 = _mt5()
 
             broker_sym = self._resolve_symbol(symbol)
 

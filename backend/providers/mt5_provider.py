@@ -63,13 +63,10 @@ from providers.base_provider import BaseProvider
 
 log = logging.getLogger("provider.mt5")
 
-# ── MT5 imported lazily — provider works in degraded mode if not installed ──
-try:
-    import MetaTrader5 as mt5
-    MT5_AVAILABLE = True
-except ImportError:
-    mt5 = None
-    MT5_AVAILABLE = False
+# ── MT5 through the thread-safe proxy (mt5 is None if not installed —
+#    provider works in degraded mode). Every mt5.* call below is serialized
+#    with the tick/bar loops and routes running in other threads. ──
+from mt5_safe import mt5, MT5_AVAILABLE
 
 # ── MT5 timeframe constants ──
 MT5_TIMEFRAMES = {
@@ -711,7 +708,10 @@ class MT5Provider(BaseProvider):
             "type_filling": mt5.ORDER_FILLING_IOC,
         }
 
-        if order.price is not None:
+        # execution_routes sends price=0 for market orders, so treat any falsy
+        # price as "fill at the current quote" (instant-execution brokers
+        # reject a market request without a real price).
+        if order.price:
             request["price"] = order.price
         elif order.order_type == "MARKET":
             # Use current ask/bid for market orders
@@ -799,6 +799,8 @@ class MT5Provider(BaseProvider):
         # Determine close direction (opposite of position)
         close_type = mt5.ORDER_TYPE_SELL if pos.type == 0 else mt5.ORDER_TYPE_BUY
         tick = mt5.symbol_info_tick(pos.symbol)
+        if not tick:
+            return OrderResult(success=False, error=f"No tick data for {pos.symbol}")
         price = tick.bid if pos.type == 0 else tick.ask
 
         request = {
