@@ -4,6 +4,14 @@ Notable changes to Quantum Terminal. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- The main README explains the project in Arabic as well, and both READMEs have detailed requirements
+  and a step-by-step guide: installing Python, a virtual environment, running on the simulator or with
+  MetaTrader 5, updating, the desktop app, and fixes for common problems.
+
 ## [1.1.0] — 2026-10-17
 
 The first stable open-source release.
@@ -60,5 +68,6 @@ The first stable open-source release.
 Initial public pre-release: the Python backend and the Electron shell as source, with a compiled UI
 build.
 
+[Unreleased]: https://github.com/wJubran/QuantumTerminal/compare/v1.1.0...HEAD
 [1.1.0]: https://github.com/wJubran/QuantumTerminal/releases/tag/v1.1.0
 [0.1.0-alpha]: https://github.com/wJubran/QuantumTerminal/releases/tag/v0.1.0-alpha

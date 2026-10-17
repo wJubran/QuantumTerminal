@@ -35,9 +35,9 @@
 وهي **منصة عرض** محلية وسريعة: الحسابات الثقيلة تُجهَّز مسبقاً، فيبقى التطبيق نفسه خفيفاً —
 شارت حي وإدخال أوامر وإدارة صفقات، وكل ذلك على جهازك أنت.
 
-## جرّبها في دقيقتين
+## ابدأ بسرعة
 
-كل ما تحتاجه هو **Python 3.10** أو أحدث. السوق المحاكى يعمل على Windows وmacOS وLinux.
+إذا كان لديك **Python 3.10** أو أحدث، فأربعة أوامر تكفي. السوق المحاكى يعمل على Windows وmacOS وLinux:
 
 </div>
 
@@ -50,14 +50,165 @@ python launcher.py --sim
 
 <div dir="rtl">
 
-تُفتح المنصة في متصفحك على العنوان **http://127.0.0.1:8502**. لا تسجيل حساب، ولا مفتاح ترخيص،
-ولا اشتراك مدفوع.
+تُفتح المنصة في متصفحك على العنوان **http://127.0.0.1:8502**. لا تسجيل حساب، ولا مفتاح ترخيص، ولا
+اشتراك مدفوع. هل أنت جديد على Python، أو تريد أسعاراً حقيقية من MetaTrader 5؟ اتبع
+[الدليل خطوة بخطوة](#التثبيت-والتشغيل-خطوة-بخطوة) أدناه.
 
-- **التداول الورقي (paper trading):** الأوامر محظورة إلى أن تفعّل *الإعدادات ⚙ ← Trading ← Live trading*.
-  في المحاكي يفتح هذا المفتاح الحساب الورقي فقط (100,000 دولار برافعة 1:100).
-- **بيانات السوق الحقيقية:** شغّل <code dir="ltr">python launcher.py</code> على Windows مع فتح
-  MetaTrader 5 وتسجيل الدخول فيه.
-- **أول مرة؟** افتح تبويب **LEARN** — الدليل متوفر بالعربية والإنجليزية.
+## المتطلبات
+
+| | المطلوب | ملاحظات |
+|---|---|---|
+| **نظام التشغيل** | Windows 10 أو 11، أو macOS، أو Linux بنظام 64 بت | MetaTrader 5 يحتاج Windows، أما السوق المحاكى فيعمل على الأنظمة الثلاثة |
+| **Python** | الإصدار 3.10 أو أحدث، بنسخة 64 بت | جُرّبت المنصة على 3.10 و3.12 و3.13. على Windows فعّل خيار <code dir="ltr">Add python.exe to PATH</code> أثناء التثبيت |
+| **الذاكرة** | ذاكرة بسعة 4 غيغابايت | الـ backend نفسه يستهلك نحو 150 ميغابايت |
+| **مساحة القرص** | نحو 1 غيغابايت فارغة | حزم Python تأخذ نحو 500 ميغابايت |
+| **المتصفح** | نسخة حديثة من Chrome أو Edge أو Firefox أو Safari | أو استخدم تطبيق سطح المكتب بدلاً منه |
+| **الإنترنت** | للتثبيت، ثم فقط لـ MetaTrader 5 وصفحة Money Flow والتحقق من التحديثات | السوق المحاكى يعمل دون إنترنت |
+| **MetaTrader 5** ‏(اختياري) | منصة MT5 من وسيطك، مع تسجيل الدخول إلى حساب (الحساب التجريبي يكفي) | على Windows فقط، ومطلوبة للأسعار الحقيقية والأوامر الحية |
+| **Node.js** ‏(اختياري) | الإصدار 20 أو أحدث | فقط لتطبيق سطح المكتب أو لإعادة بناء الواجهة |
+| **Git** ‏(اختياري) | أي إصدار | أو حمّل الكود كملف ZIP |
+
+## التثبيت والتشغيل خطوة بخطوة
+
+### 1. ثبّت Python
+
+- **على Windows:** حمّل مثبّت نسخة 64 بت من [python.org](https://www.python.org/downloads/windows/)،
+  وفعّل خيار **Add python.exe to PATH** في الشاشة الأولى. ثم افتح نافذة *Command Prompt* جديدة وتأكد أن
+  الأمر <code dir="ltr">python --version</code> يُظهر 3.10 أو أحدث.
+- **على macOS:** استخدم المثبّت من [python.org](https://www.python.org/downloads/macos/) أو الأمر
+  <code dir="ltr">brew install python@3.12</code>. وعلى macOS وLinux اكتب <code dir="ltr">python3</code>
+  أينما ذُكر <code dir="ltr">python</code> في هذا الدليل.
+- **على Linux:** ثبّت حزم توزيعتك، فعلى Debian وUbuntu مثلاً نفّذ الأمر
+  <code dir="ltr">sudo apt install python3 python3-venv python3-pip</code> في نافذة الأوامر.
+
+### 2. احصل على الكود
+
+</div>
+
+```bash
+git clone https://github.com/wJubran/QuantumTerminal.git
+cd QuantumTerminal
+```
+
+<div dir="rtl">
+
+بدون Git: من صفحة المستودع اضغط **Code ← Download ZIP**، وفُكّ الضغط، ثم افتح نافذة الأوامر داخل المجلد
+الناتج، وقد يكون اسمه <code dir="ltr">QuantumTerminal-main</code> بعد فك الضغط.
+
+### 3. أنشئ بيئة افتراضية (مُستحسن)
+
+البيئة الافتراضية (virtual environment) تعزل حزم المنصة عن بقية النظام. أنشئها داخل مجلد المشروع، فهناك
+يبحث عنها تطبيق سطح المكتب أيضاً:
+
+</div>
+
+```bat
+:: Windows (Command Prompt)
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+```bash
+# macOS / Linux
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+<div dir="rtl">
+
+سيبدأ سطر الأوامر الآن بـ <code dir="ltr">(.venv)</code>. فعّل البيئة من جديد في كل نافذة أوامر جديدة قبل
+تشغيل المنصة. وإذا رفض PowerShell تشغيل سكربت التفعيل، فنفّذ مرة واحدة الأمر
+<code dir="ltr">Set-ExecutionPolicy -Scope CurrentUser RemoteSigned</code>، أو استخدم نافذة Command Prompt بدلاً منه.
+
+### 4. ثبّت المكتبات المطلوبة
+
+</div>
+
+```bash
+cd backend
+pip install -r requirements.txt
+```
+
+<div dir="rtl">
+
+يستغرق التثبيت الأول بضع دقائق. حزمة <code dir="ltr">MetaTrader5</code> تُثبَّت على Windows فقط، لأن
+شركة MetaQuotes لا تنشرها إلا لنظام Windows وحده.
+
+### 5. شغّل المنصة
+
+**على السوق المحاكى** (أي نظام، دون حساب لدى وسيط):
+
+</div>
+
+```bash
+python launcher.py --sim
+```
+
+<div dir="rtl">
+
+**مع MetaTrader 5** (على Windows):
+
+1. ثبّت MetaTrader 5 من وسيطك وسجّل الدخول إلى حسابك (الحساب التجريبي يكفي).
+2. لتتمكن من إرسال الأوامر من Quantum Terminal، فعّل **Algo Trading** في MetaTrader 5 من زره في شريط الأدوات،
+   أو من القائمة <code dir="ltr">Tools → Options → Expert Advisors</code> بتفعيل الخيار
+   <code dir="ltr">Allow algorithmic trading</code> فيها.
+3. اترك MetaTrader 5 مفتوحاً وشغّل الأمر: <code dir="ltr">python launcher.py</code>
+4. إذا لم تعثر المنصة على MetaTrader 5 تلقائياً، فاضبطه من *الإعدادات ⚙ ← PROVIDERS*: إما
+   **TERMINAL PATH** (مسار الملف <code dir="ltr">terminal64.exe</code>) أو **LOGIN CREDENTIALS** (السيرفر ورقم
+   الحساب وكلمة المرور).
+
+يطبع المشغّل عنوان السيرفر وأماكن ملف الإعدادات والبيانات (<code dir="ltr">AppData:</code>) وملف السجل،
+ثم يفتح العنوان **http://127.0.0.1:8502** في متصفحك. إذا لم يُفتح المتصفح فافتح العنوان بنفسك. واترك نافذة
+المشغّل مفتوحة طوال استخدامك للمنصة.
+
+### 6. أول خطوات داخل المنصة
+
+- **الـ cones:** على الشارت افتح السهم ▾ بجانب **CONES** واختر DAILY أو WEEKLY أو MONTHLY أو QUARTERLY،
+  ومنه أيضاً **BATES** لعرض نموذج Bates. في المرة الأولى تكون جاهزة بعد التشغيل بنحو 30 ثانية.
+- **التداول:** الأوامر محظورة إلى أن تفعّل *الإعدادات ⚙ ← TRADING ← LIVE TRADING*. وفي المحاكي يفتح هذا
+  المفتاح الحساب الورقي فقط (100,000 دولار برافعة 1:100).
+- **مركز التعلم:** تبويب **LEARN** يشرح كل صفحة وكل نموذج، بالعربية والإنجليزية.
+
+### 7. الإيقاف وإعادة التشغيل والتحديث
+
+- **الإيقاف:** اضغط <code dir="ltr">Ctrl+C</code> في نافذة المشغّل، أو أغلقها.
+- **إعادة التشغيل:** افتح نافذة أوامر داخل مجلد المشروع، وفعّل البيئة الافتراضية (الخطوة 3)، ثم نفّذ
+  <code dir="ltr">cd backend</code> و<code dir="ltr">python launcher.py</code> (وأضف
+  <code dir="ltr">--sim</code> للسوق المحاكى).
+- **التحديث:** داخل مجلد المشروع نفّذ <code dir="ltr">git pull</code>، ثم
+  <code dir="ltr">pip install -r backend/requirements.txt</code> والبيئة الافتراضية مفعّلة. تبقى إعداداتك
+  والحساب الورقي كما هي، لأنها محفوظة في مجلد <code dir="ltr">AppData:</code> لا في مجلد المشروع.
+- **إزالة المنصة:** احذف مجلد المشروع ومجلد <code dir="ltr">AppData:</code> الذي يظهر عند التشغيل.
+
+### تطبيق سطح المكتب (اختياري)
+
+بعد تثبيت Node.js بالإصدار 20 أو أحدث:
+
+</div>
+
+```bash
+cd electron_shell
+npm install
+npm start              # or: npm run start:sim
+```
+
+<div dir="rtl">
+
+يشغّل التطبيق الـ backend تلقائياً، مستخدماً البيئة <code dir="ltr">.venv</code> أو
+<code dir="ltr">venv</code> في مجلد المشروع إن وُجدت، وإلا فـ Python المثبّت على الجهاز، ويعرض المنصة في
+نافذة مستقلة. ويحفظ إعداداته في مجلد خاص به اسمه <code dir="ltr">QuantumTerminal-v2</code>، منفصل عن إعدادات نسخة المتصفح.
+
+### حل المشكلات الشائعة
+
+| المشكلة | الحل |
+|---|---|
+| رسالة <code dir="ltr">'python' is not recognized</code> على Windows | شغّل مثبّت Python مجدداً وفعّل <code dir="ltr">Add python.exe to PATH</code>، أو اكتب <code dir="ltr">py</code> بدلاً من <code dir="ltr">python</code> |
+| رسالة <code dir="ltr">error while attempting to bind on address</code> | المنفذ 8502 مستخدم، غالباً بنسخة أخرى من المنصة. أغلقها، أو شغّل المنصة على منفذ آخر بإضافة <code dir="ltr">--port 8600</code> إلى الأمر |
+| لا توجد حزمة <code dir="ltr">MetaTrader5</code> على macOS أو Linux | هذا متوقع، فهي متوفرة لنظام Windows فقط. استخدم الخيار <code dir="ltr">--sim</code> بدلاً منها |
+| رسالة <code dir="ltr">MT5 initialize() failed</code> في السجل | تأكد أن MetaTrader 5 مفتوح ومسجَّل الدخول، واضبط TERMINAL PATH من *الإعدادات ⚙ ← PROVIDERS* |
+| MetaTrader 5 يرفض الأوامر لأن التداول الآلي معطّل | فعّل **Algo Trading** في MetaTrader 5 |
+| لم يُفتح المتصفح، أو بقيت الصفحة فارغة | افتح http://127.0.0.1:8502 بنفسك، وراجع ملف السجل الذي طبعه المشغّل |
+| لا تظهر الـ cones على الشارت | انتظر نحو 30 ثانية بعد التشغيل الأول، ثم فعّلها من السهم ▾ بجانب **CONES** |
 
 ## المزايا
 
@@ -193,22 +344,6 @@ QuantumTerminal/
 تُحفظ إعداداتك في الملف <code dir="ltr">user_config.json</code> داخل المجلد الذي يظهر بجانب
 <code dir="ltr">AppData:</code> عند تشغيل المنصة. وإعدادات المحاكي (الـ seed والرصيد الابتدائي
 والرافعة) موجودة تحت <code dir="ltr">providers.accounts.sim_default</code>.
-
-## تطبيق سطح المكتب
-
-</div>
-
-```bash
-cd electron_shell
-npm install
-npm start              # or: npm run start:sim
-```
-
-<div dir="rtl">
-
-يشغّل الغلاف الملف <code dir="ltr">backend/launcher.py</code> (مستخدماً البيئة <code dir="ltr">.venv</code>
-أو <code dir="ltr">venv</code> إن وُجدت) ويعرض المنصة في نافذة مستقلة. ولتوزيعه كبرنامج قابل للتثبيت
-استخدم Electron Forge أو electron-builder.
 
 ## التطوير
 
