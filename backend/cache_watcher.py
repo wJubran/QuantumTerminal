@@ -1,4 +1,4 @@
-# version: v3
+# version: v4
 """
 ================================================================================
 Quantum Terminal Consumer — Cache Directory Watcher
@@ -51,6 +51,10 @@ v3 — Filename parsing now delegates to data_sync_client.resolve_cache_filename
      correct in-memory slot. Same resolver used by _load_all_from_cache at
      startup, ensuring watcher and loader stay consistent.
 
+v4 — Watched dir and the consumer_config.ini fallback both come from
+     app_paths (shared with data_sync_client and Pulse Room), on every
+     platform rather than only when APPDATA is set.
+
 Rule C1 compliance: this module performs ZERO calculations — it only reads
 files already on disk and pushes WS events.
 ================================================================================
@@ -60,14 +64,12 @@ import asyncio
 import configparser
 import json
 import logging
-import os
-
-# v2: AppData dir name (env-var driven; default "QuantumTerminal" preserves v1 path).
-APP_DIR = os.environ.get("MK_APP_DIR_NAME", "QuantumTerminal")
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Awaitable, Callable, Optional
+
+import app_paths  # v4: per-user app-data + cache dirs, shared by every module
 
 log = logging.getLogger("qt.cache_watcher")
 
@@ -93,9 +95,7 @@ def _read_config() -> tuple[bool, float]:
     if getattr(_sys, "frozen", False):
         candidates.append(Path(_sys.executable).parent / "consumer_config.ini")
 
-    appdata = os.environ.get("APPDATA", "")
-    if appdata:
-        candidates.append(Path(appdata) / APP_DIR / "consumer_config.ini")
+    candidates.append(app_paths.app_data_dir() / "consumer_config.ini")
 
     enabled = True
     interval = DEFAULT_INTERVAL_SECONDS
@@ -123,15 +123,11 @@ def _read_config() -> tuple[bool, float]:
 
 
 def _get_cache_dir() -> Optional[Path]:
-    """Resolve %APPDATA%\\QuantumTerminal\\cache via the same helper data_sync_client uses."""
+    """Resolve the cache dir data_sync_client writes to (app_paths.cache_dir())."""
     try:
-        from data_sync_client import _get_cache_dir as _dsc_cache_dir
-        return _dsc_cache_dir()
+        return app_paths.cache_dir()
     except Exception:
-        appdata = os.environ.get("APPDATA", "")
-        if not appdata:
-            return None
-        return Path(appdata) / APP_DIR / "cache"
+        return None
 
 
 def create_cache_watcher_task(

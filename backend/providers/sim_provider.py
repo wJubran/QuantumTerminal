@@ -59,6 +59,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
+import app_paths
 from models import (
     TickData, BarData, AccountInfo, SymbolInfo, ClosedTrade,
     OrderRequest, OrderResult, Position, PendingOrder,
@@ -981,10 +982,7 @@ class SimProvider(BaseProvider):
             return None
         if cfg.get("state_file"):
             return Path(cfg["state_file"]).expanduser()
-        app_dir = os.environ.get("MK_APP_DIR_NAME", "QuantumTerminal")
-        appdata = os.environ.get("APPDATA", "")
-        base = Path(appdata) / app_dir if appdata else Path.home() / f".{app_dir.lower()}"
-        return base / "sim_paper_account.json"
+        return app_paths.app_data_dir() / "sim_paper_account.json"
 
     def _save_state(self) -> None:
         if self._state_path is None:
