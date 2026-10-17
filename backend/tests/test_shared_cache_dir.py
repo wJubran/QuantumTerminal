@@ -116,3 +116,13 @@ def test_profile_migration_reads_live_user_config_off_windows(monkeypatch):
     live.write_text('{"profiles": {"Day": {}}}', encoding="utf-8")
 
     assert config_manager._legacy_user_config_paths() == [live]
+
+
+def test_pulse_room_prefers_the_current_bands_file_name(tmp_path):
+    from pulse_room import builder
+    legacy = tmp_path / "GLOBAL_eurusd_bands.json"
+    legacy.write_text("{}")
+    assert builder.bands_path("EURUSD", cache_dir=tmp_path) == legacy
+    current = tmp_path / "EURUSD_bands.json"
+    current.write_text("{}")
+    assert builder.bands_path("EURUSD", cache_dir=tmp_path) == current
