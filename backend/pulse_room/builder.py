@@ -1,4 +1,6 @@
-# version: v5
+# version: v6
+# v6 — bands_path() prefers {TICKER}_bands.json, the name the data pipeline
+#      writes; GLOBAL_<ticker>_bands.json is only used when it is the one present.
 # v5 — cache dir comes from app_paths.cache_dir(), the folder the sync client
 #      and the regime/cone routes read. Previously defaulted to
 #      "QuantumTerminal-v2" (and ~/.config off Windows), so outside Electron
@@ -36,8 +38,13 @@ def cones_path(ticker: str, cache_dir: Optional[Path] = None) -> Path:
 
 
 def bands_path(ticker: str, cache_dir: Optional[Path] = None) -> Path:
+    """{TICKER}_bands.json, the current name; the legacy
+    GLOBAL_<ticker>_bands.json only when that is the one present (the sync
+    client reads both)."""
     cd = cache_dir or _default_cache_dir()
-    return cd / f"GLOBAL_{ticker.lower()}_bands.json"
+    current = cd / f"{ticker.upper()}_bands.json"
+    legacy = cd / f"GLOBAL_{ticker.lower()}_bands.json"
+    return legacy if legacy.is_file() and not current.is_file() else current
 
 
 # ---------- safe JSON loader ----------
