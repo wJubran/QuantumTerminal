@@ -1208,8 +1208,7 @@ function MainTerminal() {
       {/* NAV — calibration tab removed (Rule C1) */}
       <div style={{ background: C.bg, borderBottom: `1px solid ${C.border}`, padding: "0 12px", display: "flex", alignItems: "center" }}>
         {["quant","fundamental","flow","options", ...(STRESS_LAB_ENABLED ? ["stress"] : []), "learn"].map(id => {
-          // v11: Pro-only tabs get the inline gold PRO badge. Keep this
-          //      list in sync with the actual gate logic inside each page.
+          // Display label per tab (no PRO badges since v29 — every page is open to all).
           const label = id==="flow"?"money flow"
                      : id==="quant"?"quant analysis"
                      : id==="options"?"options quant"
@@ -1533,7 +1532,7 @@ function MainTerminal() {
             <OptionsPanel />
           </div>
         )}
-        {/* v7: Stress Lab — Pro-tier synthesis page. v8: gated by STRESS_LAB_ENABLED
+        {/* v7: Stress Lab — synthesis page. v8: gated by STRESS_LAB_ENABLED
              flag so its polling hooks don't run while the feature is hidden.
              v20: also gated on tab === "stress" via conditional render so
              the 30s polling intervals stop firing while on other tabs. */}

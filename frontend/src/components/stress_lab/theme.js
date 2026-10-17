@@ -1,7 +1,7 @@
 // version: v1
 // Stress Lab theme — sits on top of the Quantum Terminal palette. We keep the
 // black/orange industrial base from chart_constants but add:
-//   · a gold "PRO" accent (ffd89e/b8823d) for tier pill + hero gradient
+//   · a gold accent (ffd89e/b8823d) for the ◆ STRESS LAB pill
 //   · conviction-specific coloring for chips (strong/moderate/wait/avoid)
 //   · lens alignment colors (align/warn/oppose/neutral) computed from verdict
 //
@@ -35,7 +35,7 @@ export const SL = {
   grey:      "#7a8a99",
   greyDeep:  "#293847",
 
-  // Pro tier — gold gradient
+  // Gold accent — ◆ STRESS LAB pill gradient
   proGold:     "#ffd89e",
   proGoldDeep: "#b8823d",
   proBgStart:  "#5d3a1f",

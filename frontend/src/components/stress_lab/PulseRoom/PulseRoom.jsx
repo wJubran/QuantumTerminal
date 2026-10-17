@@ -1,5 +1,5 @@
 // version: v2
-// PulseRoom.jsx — top-level for the PRO Pulse Room sub-tab inside Stress Lab.
+// PulseRoom.jsx — top-level for the Pulse Room sub-tab inside Stress Lab.
 // Renders top bar (with scanner switch), stale banner, asset grid,
 // alert strip, footer stats. Composes everything from this directory.
 
