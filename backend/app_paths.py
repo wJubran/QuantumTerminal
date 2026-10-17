@@ -21,8 +21,8 @@ Paths are resolved on every call, not at import, so the process environment
 
 Legacy locations: earlier builds kept a few files elsewhere. Pulse Room
 defaulted to "QuantumTerminal-v2" (under ~/.config off Windows), and off
-Windows the account files, consumer_config.ini and user_config.json each had
-their own folder. The first time a process resolves the app-data dir, any of
+Windows the account files (including the simulator's paper account),
+consumer_config.ini and user_config.json each had their own folder. The first time a process resolves the app-data dir, any of
 those files missing from it are copied in — never moved, never overwritten —
 and a marker file stops the copy from running again.
 ================================================================================
@@ -102,9 +102,11 @@ def _legacy_locations(name: str) -> list:
     return [
         # pulse_room: ~/.config/<name>
         (home / ".config" / pulse_name, _PULSE_STATE_FILES),
-        # account_manager, plus launcher's consumer_config.ini fallback
+        # account_manager, the simulator's paper account, and launcher's
+        # consumer_config.ini fallback
         (home / f".{name.lower()}",
-         ("account_settings.json", "account_state.json", "consumer_config.ini")),
+         ("account_settings.json", "account_state.json", "sim_paper_account.json",
+          "consumer_config.ini")),
         # config_manager used the Windows layout under $HOME
         (home / "AppData" / "Roaming" / name, ("user_config.json",)),
     ]

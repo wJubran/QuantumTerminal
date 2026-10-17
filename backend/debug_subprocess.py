@@ -10,7 +10,7 @@ log file instead and returns the Popen handle:
     <logs dir>/subprocess_logs/<label>.log
 
 The logs dir is the same one logging_setup uses (%APPDATA%\\<APP_DIR>\\logs\\
-on Windows, ~/.<app_dir>/logs/ elsewhere).
+on Windows, ~/.<APP_DIR>/logs/ elsewhere — see app_paths).
 ================================================================================
 """
 

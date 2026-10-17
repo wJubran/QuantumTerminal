@@ -103,13 +103,17 @@ def test_posix_files_are_copied_once_and_never_overwritten(user_dirs, monkeypatc
 
 def test_posix_account_files_are_copied_from_lowercase_dir(user_dirs, monkeypatch):
     monkeypatch.setattr(app_paths, "_is_windows", lambda: False)
-    old = write(user_dirs.home / ".quantumterminal" / "account_state.json", '{"peak_equity": 1}')
+    old_dir = user_dirs.home / ".quantumterminal"
+    write(old_dir / "account_state.json", '{"peak_equity": 1}')
+    write(old_dir / "sim_paper_account.json", '{"balance": 100000}')
     if (user_dirs.home / ".QuantumTerminal").exists():
         pytest.skip("case-insensitive filesystem: both spellings are one folder")
 
-    new = app_paths.app_data_dir() / "account_state.json"
+    new_dir = app_paths.app_data_dir()
 
-    assert new.read_text(encoding="utf-8") == old.read_text(encoding="utf-8")
+    for name in ("account_state.json", "sim_paper_account.json"):
+        assert (new_dir / name).read_text(encoding="utf-8") == \
+            (old_dir / name).read_text(encoding="utf-8")
 
 
 def test_failed_copy_is_retried_on_next_start(user_dirs, monkeypatch):
