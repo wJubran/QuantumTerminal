@@ -12,8 +12,10 @@ Pulse Room and the Replay page work without a data server.
       regime   {T}_regime.json: daily HMM regimes (refitted once a day) and
                the 15-minute volatility alarm (refreshed every new M15 bar)
       replay   {T}_historical_cones.json, {T}_bands_replay.json (Replay page)
-  plus the macro regime from FRED data: GLOBAL_macro_regime.json and
-  GLOBAL_regime_transitions.json.
+  plus the macro regime from FRED data (GLOBAL_macro_regime.json,
+  GLOBAL_regime_transitions.json) and the FUNDAMENTAL page's file
+  (GLOBAL_fundamental_state.json: FRED liquidity, yields and VIX, CFTC COT,
+  asset scores).
 - Files are stamped "producer": "quantum-terminal-local". A file written by
   any other producer is never overwritten.
 - The data source is part of each file's signature. After a switch
@@ -24,7 +26,8 @@ Pulse Room and the Replay page work without a data server.
 
 v2 — bands, the Replay page's files, eight quarterly anchors with
      meta.anchors, a Pulse Room rebuild after new live files.
-v3 — regimes (per asset and macro); a source switch starts a pass at once.
+v3 — regimes (per asset and macro); a source switch starts a pass at once;
+     the FUNDAMENTAL page's file.
 """
 
 from __future__ import annotations
@@ -39,7 +42,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, Optional, Sequence, Tuple
 
-from . import bands, cones, fred, regimes
+from . import bands, cones, cot, fred, fundamental, regimes
 
 log = logging.getLogger("qt.local_analysis")
 
@@ -66,6 +69,9 @@ PHASES = {
 }
 MACRO_FILE = "GLOBAL_macro_regime.json"
 TRANSITIONS_FILE = "GLOBAL_regime_transitions.json"
+FUNDAMENTAL_FILE = "GLOBAL_fundamental_state.json"
+FUNDAMENTAL_VERSION = 1
+FUNDAMENTAL_REFRESH_SEC = 3600      # the asset scores follow prices
 
 # (ticker, phase) → signature of the last build written (or found up to date) this run
 _built: Dict[Tuple[str, str], str] = {}
@@ -256,6 +262,59 @@ def update_macro(cache_dir: Optional[Path] = None, download=None, force: bool = 
     return True
 
 
+def update_fundamental(provider=None, universe: Sequence[str] = (), cache_dir: Optional[Path] = None,
+                       download=None, cot_download=None, force: bool = False, now: Optional[float] = None) -> bool:
+    """Rebuild GLOBAL_fundamental_state.json (the FUNDAMENTAL page) when its
+    public data changed, or every FUNDAMENTAL_REFRESH_SEC for the asset
+    scores. True when it was written. Each part is optional: whatever can't
+    be fetched is left out."""
+    cache_dir = cache_dir or _cache_dir()
+    path = cache_dir / FUNDAMENTAL_FILE
+    now = time.time() if now is None else now
+    existing = _read(path)
+    if existing is not None and existing.get("producer") != PRODUCER:
+        return False
+    series = {}
+    for sid in fundamental.FRED_SERIES + regimes.MACRO_SERIES:
+        try:
+            series[sid] = fred.series(sid, cache_dir, download=download)
+        except fred.FredError:
+            continue
+    tickers = [t.upper() for t in universe]
+    cot_blocks = cot.for_universe(tickers, cache_dir, download=cot_download)
+    source = f"{getattr(provider, 'provider_type', '-')}:{getattr(provider, 'provider_id', '-')}"
+    signature = (f"f{FUNDAMENTAL_VERSION}|{source}|" + "|".join(f"{k}:{v[-1][0]}" for k, v in sorted(series.items()) if v)
+                 + "|" + "|".join(f"{t}:{b['report_date']}" for t, b in sorted(cot_blocks.items())))
+    if (not force and existing is not None and existing.get("signature") == signature
+            and now - float(existing.get("_built_at", 0)) < FUNDAMENTAL_REFRESH_SEC):
+        return False
+    closes = {}
+    if provider is not None and getattr(provider, "connected", False):
+        for t in tickers:
+            try:
+                bars = cones.normalize(provider.get_bars(t, "D1", 320) or [])
+            except Exception:
+                continue
+            if bars:
+                closes[t] = [b.close for b in bars]
+    body = fundamental.build(series, _read(cache_dir / MACRO_FILE), closes, cot_blocks)
+    if body is None:
+        return False
+    computed = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    if "regime" in body:
+        body["regime"]["computed_at"] = computed
+    payload = {"producer": PRODUCER, "engine_version": ENGINE_VERSION, "signature": signature,
+               "computed_at": computed, "_built_at": now, **body}
+    _write_atomic(path, payload)
+    try:
+        from data_sync_client import get_sync_client
+        get_sync_client()._get_store("fundamental_state")["GLOBAL"] = payload
+    except Exception:
+        pass
+    log.info(f"Fundamental state rebuilt: {', '.join(k for k in body if not k.startswith('_'))}")
+    return True
+
+
 def _discard_other_sources(ticker: str, cache_dir: Path, source_id: str, phases: Sequence[str]) -> None:
     """The source has no bars for this ticker: remove our files for it that
     were built from another source's prices. Files of other producers, and
@@ -363,6 +422,25 @@ async def _macro_pass(broadcast_event: Optional[Callable]) -> bool:
     return wrote
 
 
+async def _fundamental_pass(app_state, broadcast_event: Optional[Callable]) -> bool:
+    cfg = getattr(app_state, "cfg_manager", None)
+    universe = cfg.get_active_universe() if cfg is not None else []
+    try:
+        wrote = await asyncio.to_thread(update_fundamental, getattr(app_state, "provider", None), universe)
+    except asyncio.CancelledError:
+        raise
+    except Exception as e:
+        log.warning(f"Fundamental state build failed: {e}")
+        return False
+    if wrote and broadcast_event is not None:
+        try:
+            await broadcast_event({"type": "data_sync_complete", "source": "local_analysis",
+                                   "phase": "fundamental", "synced": 1, "tickers": []})
+        except Exception:
+            pass
+    return wrote
+
+
 async def run_loop(app_state, broadcast_event: Optional[Callable] = None,
                    interval: float = CHECK_INTERVAL_SEC) -> None:
     global _wake
@@ -374,6 +452,7 @@ async def run_loop(app_state, broadcast_event: Optional[Callable] = None,
             _pulse_room_rebuild()
         await _pass(app_state, "regime", broadcast_event)
         await _macro_pass(broadcast_event)
+        await _fundamental_pass(app_state, broadcast_event)
         await _pass(app_state, "replay", broadcast_event)
         try:
             await asyncio.wait_for(_wake.wait(), timeout=interval)

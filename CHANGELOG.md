@@ -18,6 +18,18 @@ Notable changes to Quantum Terminal. The format follows
     breakeven inflation and WTI crude on FRED (free, no key; needs internet).
 - Learning Center article *Market regimes (HMM)* (English and Arabic), and a *How the regimes are
   computed* section in both READMEs.
+- **The FUNDAMENTAL page works without a data server.** It is built from free public data:
+  - the macro regime with its 12-month trail;
+  - Fed net liquidity (balance sheet − TGA − reverse repo) with the Fed's rate changes marked;
+  - the Treasury curve now and 3 months ago, the 2s10s spread, the real yield and fed funds, all from
+    FRED;
+  - the VIX;
+  - CFTC Commitments of Traders positioning, as a z-score against three years;
+  - a −100…+100 score per instrument from the regime, its 200-day trend and its 3-month momentum, with
+    each part shown.
+
+  Downloads are cached, so the page keeps the latest data offline. The page now shows how old its data
+  is. A Learning Center article explains each card.
 - **Five more data sources**, picked in *Settings → DATA SOURCES* (with TEST and USE buttons) while the
   terminal runs, or with `python launcher.py --provider <type>`:
   - **Yahoo Finance**: free, no account. Forex; metals, energy, grain, soft and livestock futures;
