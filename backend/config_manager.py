@@ -1,4 +1,11 @@
-# version: v11
+# version: v12
+# v12 — AppData dir resolved by app_paths.app_data_dir(), shared by every
+#       module (2026-10-17). Off Windows, user_config.json moves from
+#       ~/AppData/Roaming/<APP_DIR>/ to ~/.<APP_DIR>/ (app_paths copies the
+#       old file over once), and _legacy_user_config_paths() now includes the
+#       live file on every platform — previously, off Windows, the v11
+#       migration found no sources and stripped the profiles unmigrated.
+#
 # v11 — User-owned saves move to %USERPROFILE%\Documents\Quantum Terminal\ as
 #       per-file stores (2026-05-13). Bug: a 4-key trimmed user_config.json
 #       was being written when _load_user_config silently fell back to {}
@@ -111,28 +118,23 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timezone
 
+import app_paths
+
 log = logging.getLogger("config_manager")
 
 # ── Project root (Rule 3) ──
 PROJECT_ROOT = Path(__file__).resolve().parent
 
-# v6: AppData dir — same env-var convention used by license_client.py so v1
-#     and v2 can run side by side without sharing user state. Default
-#     "QuantumTerminal" preserves v1 behavior.
-APP_DIR = os.environ.get("MK_APP_DIR_NAME", "QuantumTerminal")
 
-
+# v6: AppData dir — MK_APP_DIR_NAME lets v1 and v2 run side by side without
+#     sharing user state; default "QuantumTerminal" preserves v1 behavior.
+#     v12: resolved by app_paths, like every other module.
 def _appdata_user_config_path() -> Path:
-    """Resolve %APPDATA%\\<APP_DIR>\\user_config.json. Used as the canonical
-    storage path for user preferences + saved profiles. Survives reinstalls
-    of the app (NSIS overwrites the install dir but leaves AppData alone)."""
-    appdata = os.environ.get("APPDATA")
-    if appdata:
-        base = Path(appdata) / APP_DIR
-    else:
-        base = Path.home() / "AppData" / "Roaming" / APP_DIR
-    base.mkdir(parents=True, exist_ok=True)
-    return base / "user_config.json"
+    """Resolve <app-data dir>\\user_config.json (%APPDATA%\\<APP_DIR>\\ on
+    Windows; see app_paths). Used as the canonical storage path for user
+    preferences + saved profiles. Survives reinstalls of the app (NSIS
+    overwrites the install dir but leaves AppData alone)."""
+    return app_paths.app_data_dir() / "user_config.json"
 
 
 # ════════════════════════════════════════════════════════════════
@@ -332,18 +334,15 @@ def _migration_marker_path() -> Path:
 def _legacy_user_config_paths() -> List[Path]:
     """Return up to three paths to legacy user_config.json files, in
     priority order: live AppData v2 first, then any sibling dirs."""
-    appdata = os.environ.get("APPDATA")
-    paths: List[Path] = []
-    if appdata:
-        base = Path(appdata)
-        # Live v2 first (most authoritative).
-        paths.append(base / APP_DIR / "user_config.json")
-        # QuantumTerminal-X — orphaned attempt with a typo'd env var.
-        if APP_DIR != "QuantumTerminal-X":
-            paths.append(base / "QuantumTerminal-X" / "user_config.json")
-        # v1 — read-only fallback (Rule 8: never write).
-        if APP_DIR != "QuantumTerminal":
-            paths.append(base / "QuantumTerminal" / "user_config.json")
+    app_dir = app_paths.app_dir_name()
+    # Live v2 first (most authoritative).
+    paths: List[Path] = [_appdata_user_config_path()]
+    # QuantumTerminal-X — orphaned attempt with a typo'd env var.
+    if app_dir != "QuantumTerminal-X":
+        paths.append(app_paths.app_data_dir_for("QuantumTerminal-X") / "user_config.json")
+    # v1 — read-only fallback (Rule 8: never write).
+    if app_dir != "QuantumTerminal":
+        paths.append(app_paths.app_data_dir_for("QuantumTerminal") / "user_config.json")
     return [p for p in paths if p.exists()]
 
 

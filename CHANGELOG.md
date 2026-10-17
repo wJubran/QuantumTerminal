@@ -50,6 +50,9 @@ The first stable open-source release.
 - The data-sync config loads without a `consumer_config.ini`.
 - Cache files with two-word categories are filed under the right ticker.
 - `/api/bands_replay` reads the analysis cache instead of a fixed developer folder.
+- Every module resolves the per-user folder the same way, so Pulse Room finds the cone and band
+  files the sync client and the local engine write (it looked in another folder outside the desktop
+  app). Files from the old locations are copied in once, never moved or overwritten.
 - Pydantic v2 deprecation warnings are gone.
 
 ## [0.1.0-alpha] — 2026-05-21

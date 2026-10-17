@@ -1,10 +1,15 @@
-# version: v12
+# version: v13
 """
 ================================================================================
 Quantum Terminal Consumer — Data Sync Client
 ================================================================================
 Downloads pre-computed data from the Quantum Terminal VPS and caches it locally
 for offline resilience.
+
+v13 — Cache dir comes from app_paths.cache_dir(), the one resolver every
+      module now shares (Pulse Room, regime/cone routes, cache watcher...).
+      Off Windows it honours MK_APP_DIR_NAME (~/.<name>/cache) instead of
+      always using ~/.QuantumTerminal/cache; the default name is unchanged.
 
 v11 — Parallel sync via httpx + asyncio.gather. The manifest path now
       issues all per-file GETs concurrently (semaphore-bounded at 8) using
@@ -109,7 +114,7 @@ v3 — Data Center transition: five new GLOBAL categories registered for the
      recompute components at different cadences without redownloading the
      whole bundle. Exposed to the frontend via /api/data/global/{key}.
 
-Storage:
+Storage (app_paths.cache_dir(); Windows default shown):
     %APPDATA%\\QuantumTerminal\\cache\\{TICKER}_cones.json
     %APPDATA%\\QuantumTerminal\\cache\\{TICKER}_bands.json
     %APPDATA%\\QuantumTerminal\\cache\\{TICKER}_options.json
@@ -128,18 +133,16 @@ This module does NOT introduce any calculation triggers.
 import asyncio  # v8: needed for asyncio.to_thread to keep async handlers from blocking
 import json
 import logging
-import os
 import time
 import configparser
 from pathlib import Path
-
-# AppData directory name.
-APP_DIR = os.environ.get("MK_APP_DIR_NAME", "QuantumTerminal")
 from datetime import datetime, timezone, timedelta
 from email.utils import formatdate
 from typing import Optional, Dict, List, Any, Tuple
 from dataclasses import dataclass, field, asdict
 from enum import Enum
+
+import app_paths  # v13: per-user app-data + cache dirs, shared by every module
 
 log = logging.getLogger("qt.data_sync")
 
@@ -223,7 +226,6 @@ class StalenessInfo:
 # ============================================================
 
 def _read_config() -> configparser.ConfigParser:
-    import platform as _plat
     # Values are literal: "%APPDATA%" is a Windows-style path, not configparser
     # interpolation (which rejected the built-in defaults when no ini exists).
     config = configparser.ConfigParser(interpolation=None)
@@ -237,11 +239,7 @@ def _read_config() -> configparser.ConfigParser:
     if getattr(_sys, 'frozen', False):
         search_paths.append(Path(_sys.executable).parent / "consumer_config.ini")
 
-    if _plat.system() == "Windows":
-        import os as _os
-        appdata = _os.environ.get("APPDATA", "")
-        if appdata:
-            search_paths.append(Path(appdata) / APP_DIR / "consumer_config.ini")
+    search_paths.append(app_paths.app_data_dir() / "consumer_config.ini")
 
     for p in _sys.path:
         candidate = Path(p) / "consumer_config.ini"
@@ -255,7 +253,7 @@ def _read_config() -> configparser.ConfigParser:
 
     config.read_dict({
         "data": {
-            "cache_dir": f"%APPDATA%\\{APP_DIR}\\cache",
+            "cache_dir": f"%APPDATA%\\{app_paths.app_dir_name()}\\cache",
             "stale_warning_hours": "48",
             "stale_error_hours": "72",
         },
@@ -275,18 +273,9 @@ def _get_stale_thresholds() -> Tuple[float, float]:
 # ============================================================
 
 def _get_cache_dir() -> Path:
-    import platform, os
-    if platform.system() == "Windows":
-        appdata = os.environ.get("APPDATA", "")
-        if appdata:
-            base = Path(appdata) / APP_DIR / "cache"
-        else:
-            base = Path.home() / "AppData" / "Roaming" / APP_DIR / "cache"
-    else:
-        base = Path.home() / ".QuantumTerminal" / "cache"
-
-    base.mkdir(parents=True, exist_ok=True)
-    return base
+    """v13: thin wrapper kept for the modules that import it — the location
+    itself is decided by app_paths.cache_dir()."""
+    return app_paths.cache_dir()
 
 
 def _cache_path(ticker: str, data_type: str) -> Path:
