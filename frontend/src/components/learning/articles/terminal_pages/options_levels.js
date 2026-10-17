@@ -79,8 +79,8 @@ export default {
       heading: { en: "Caveats", ar: "تحفظات" },
       bullets: [
         {
-          en: "GEX is computed from end-of-day options snapshots (CBOE). Intraday it can drift — the levels page refreshes only on the nightly sync.",
-          ar: "GEX يُحتسب من snapshots نهاية اليوم للـ options (CBOE). خلال اليوم قد ينحرف — صفحة الـ levels تتحدث فقط مع الـ sync الليلي.",
+          en: "GEX is computed by the terminal from the SPY, QQQ, GLD, SLV and USO option chains (Yahoo, ~15 min delayed), refreshed every 15 minutes while New York trades.",
+          ar: "تحسب المنصة الـ GEX من سلاسل خيارات SPY وQQQ وGLD وSLV وUSO (من Yahoo، متأخرة نحو 15 دقيقة)، وتحدّثه كل 15 دقيقة أثناء تداول نيويورك.",
         },
         {
           en: "Heavy news / event risk (FOMC, CPI, earnings) overrides positioning. Walls don't hold during a surprise.",

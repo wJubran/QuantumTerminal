@@ -6,6 +6,13 @@ Notable changes to Quantum Terminal. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Options Quant, checked against the live SPY, QQQ, GLD, SLV and USO chains:
+  - the swing entropy states are recalibrated (every market read CHAOTIC);
+  - the wall, HVL and expected-move tooltips and the GEX articles now describe what the terminal computes;
+  - the L01 card no longer says BELOW FLIP when there is no flip.
+
 ## [1.2.0] — 2026-10-17
 
 ### Added
