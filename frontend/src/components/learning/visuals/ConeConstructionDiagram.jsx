@@ -68,7 +68,7 @@ export default function ConeConstructionDiagram({ lang = "en" }) {
       {/* Anchor */}
       <line x1="220" y1="5" x2="220" y2="215" stroke="#22d3ee" strokeWidth="1" strokeDasharray="2 2" opacity="0.8"/>
       <text x="220" y="16" fill="#22d3ee" fontSize="9" fontFamily="monospace" textAnchor="middle" fontWeight="700">
-        {L("ANCHOR · NOW", "الآن · ANCHOR")}
+        {L("ANCHOR · PERIOD OPEN", "ANCHOR · افتتاح الفترة")}
       </text>
 
       {/* History */}
@@ -76,11 +76,11 @@ export default function ConeConstructionDiagram({ lang = "en" }) {
       <circle cx="220" cy="110" r="3" fill="#22d3ee"/>
 
       {/* Labels */}
-      <text x="435" y="58" fill="#e8383b" fontSize="9" fontFamily="monospace">p95</text>
-      <text x="435" y="88" fill="#ff6d00" fontSize="9" fontFamily="monospace">p75</text>
+      <text x="435" y="58" fill="#e8383b" fontSize="9" fontFamily="monospace">+2σ</text>
+      <text x="435" y="88" fill="#ff6d00" fontSize="9" fontFamily="monospace">+1σ</text>
       <text x="435" y="113" fill="#ffc107" fontSize="9" fontFamily="monospace">p50</text>
-      <text x="435" y="138" fill="#ff6d00" fontSize="9" fontFamily="monospace">p25</text>
-      <text x="435" y="168" fill="#e8383b" fontSize="9" fontFamily="monospace">p05</text>
+      <text x="435" y="138" fill="#ff6d00" fontSize="9" fontFamily="monospace">−1σ</text>
+      <text x="435" y="168" fill="#e8383b" fontSize="9" fontFamily="monospace">−2σ</text>
 
       <text x="325" y="210" fill="#ffc107" fontSize="9" fontFamily="monospace" textAnchor="middle" opacity="0.9">
         {L("~14 MONTE CARLO PATHS → PERCENTILE CONE", "≈14 Monte Carlo paths → cone الاحتمالات")}

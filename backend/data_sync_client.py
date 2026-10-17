@@ -355,6 +355,7 @@ def resolve_cache_filename(stem: str):
         "GLOBAL_xauusd_historical_cones"    → ("XAUUSD", "historical_cones") [legacy reroute]
         "money_flow"                        → ("GLOBAL", "money_flow")  [bare global]
         "probability_state"                 → ("GLOBAL", "probability_state")  [bare global]
+        "XAUUSD_quarterly_cones"            → ("XAUUSD", "quarterly_cones")
     """
     import re as _re
     if not stem:
@@ -378,8 +379,10 @@ def resolve_cache_filename(stem: str):
             return (m.group(1).upper(), m.group(2))
         return None
 
-    # (d) Normal per-ticker — greedy split on the last "_<category>" suffix.
-    m = _re.match(r'^(.+)_([a-z_]+)$', stem, _re.IGNORECASE)
+    # (d) Normal per-ticker — tickers never contain "_", so split at the first
+    #     one (a greedy split turned XAUUSD_quarterly_cones into a bogus
+    #     "XAUUSD_QUARTERLY" ticker with category "cones").
+    m = _re.match(r'^([A-Za-z0-9.]+)_([a-z_]+)$', stem, _re.IGNORECASE)
     if m:
         return (m.group(1).upper(), m.group(2).lower())
     return None

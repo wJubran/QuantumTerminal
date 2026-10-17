@@ -14,9 +14,9 @@
 ![React 18](https://img.shields.io/badge/react-18-00d2d3.svg)
 ![Platforms](https://img.shields.io/badge/runs%20on-Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-ff6d00.svg)
 
-<img src="screenshots/terminal.png" width="100%" alt="Quantum Terminal on the built-in simulated market: an XAUUSD 15-minute chart with a paper position, its stop-loss and take-profit lines, and the open-positions table" />
+<img src="screenshots/terminal.png" width="100%" alt="Quantum Terminal on the built-in simulated market: an XAUUSD hourly chart with this week's and last week's volatility cones (GBM, MJD and Bates), a paper position with its stop-loss and take-profit lines, and the open-positions table" />
 
-<sub>Running on the built-in simulated market — no broker account needed.</sub>
+<sub>Running on the built-in simulated market — the weekly volatility cones are computed by the terminal itself. No broker account needed.</sub>
 
 </div>
 
@@ -57,6 +57,7 @@ key and no paywall.
 
 | Area | What you get |
 |---|---|
+| **Volatility cones** | DAILY, WEEKLY, MONTHLY and QUARTERLY cones from GBM, MJD and Bates models, computed by the terminal from the feed's own daily bars ([how](#how-the-cones-are-computed)) |
 | **Live charts** | TradingView Lightweight Charts, M1 to D1, several charts in tabs, drawing tools, chart templates, crosshair price/time readout, world clock with trading sessions |
 | **Order entry** | Market, limit and stop orders with stop loss / take profit, and a live risk / reward preview in money and in % of the balance |
 | **Positions** | Open positions with risk, reward and P&L; drag SL/TP lines on the chart, or edit and close from the table; account exposure strip |
@@ -70,17 +71,16 @@ key and no paywall.
 
 | Panel | What it shows |
 |---|---|
-| **Volatility cones** | GBM, MJD and Bates forecast cones across several horizons |
 | **Bands** | Volatility and deviation bands for intraday trading |
 | **Options Quant** | Gamma exposure (GEX), call/put walls, max pain and dealer positioning |
 | **Regimes** | Macro and per-asset regime classification, shown as a strip and on the chart |
 | **Fundamental · Stress Lab · Replay** | Macro dashboard, Pulse Room and Options Cockpit, and a replay of past cones against price |
 
-These panels read pre-computed analysis files from a local cache. **This repository does not include
-the pipeline that produces them**, so out of the box these panels stay empty and the header shows
-`SERVER ○ NONE`. Building an open-source local quant engine is the top item on the
-[roadmap](#roadmap). The **Money Flow** page's sector and country rotation is fetched live from
-Yahoo Finance (`yfinance`) and needs internet access.
+These panels read pre-computed analysis files from the same local cache the cones are written to.
+**This repository does not produce them yet**, so out of the box they stay empty, and the header shows
+`SERVER ○ NONE` because no data server is configured. Extending the local engine to bands and
+regimes is the top item on the [roadmap](#roadmap). The **Money Flow** page's sector and country
+rotation is fetched live from Yahoo Finance (`yfinance`) and needs internet access.
 
 ## Screenshots
 
@@ -105,6 +105,27 @@ Yahoo Finance (`yfinance`) and needs internet access.
 
 <sub>The last two images were rendered from pre-computed analysis data, which is not part of this repository.</sub>
 
+## How the cones are computed
+
+A few seconds after start-up, and again whenever a new daily bar appears, the terminal rebuilds every
+instrument's cones from the active feed's daily bars (`backend/local_analysis/`):
+
+- **Anchors:** each cone starts at the open of its period — the trading day, the week (Monday), the
+  month or the quarter — and runs to the end of that period. The chart also shows the previous
+  periods' cones, so you can see how past forecasts played out.
+- **No look-ahead:** a cone's parameters come only from the ~250 daily returns *before* its anchor.
+- **Models:** GBM (normal returns, closed form); MJD (GBM plus Poisson jumps fitted from outlier days,
+  exact mixture quantiles); Bates (Heston stochastic variance plus the same jumps, 25,000 Monte Carlo
+  paths with a fixed seed, so results are reproducible).
+- **Lines:** the median and the ±1, ±2 and ±3 standard-deviation quantiles (p15.9 / p84.1,
+  p2.3 / p97.7, p0.13 / p99.87), with a zero expected log return.
+- **Trading time:** time advances only on the weekdays the instrument actually trades, read from its
+  own bars, so a cone does not widen over a closed weekend.
+
+The results are written to the analysis cache as `{TICKER}_cones.json` and
+`{TICKER}_quarterly_cones.json`; a file another producer wrote is never overwritten. Turn the cones on
+from the ▾ next to **CONES** (and **BATES**) on a chart; `MK_LOCAL_ANALYSIS=0` turns the computation off.
+
 ## How it works
 
 ```mermaid
@@ -114,8 +135,10 @@ flowchart LR
         RITH["Rithmic"]
         SIM["Simulated market<br/>(Bates model)"]
     end
-    CACHE[("Analysis cache<br/>pre-computed JSON")]
+    CACHE[("Analysis cache<br/>JSON files")]
     feeds --> API["Python backend<br/>FastAPI · 127.0.0.1:8502"]
+    API -- "daily bars" --> ENGINE["Local analysis<br/>volatility cones"]
+    ENGINE --> CACHE
     CACHE --> API
     API -- "REST + WebSocket" --> UI["React UI<br/>frontend/"]
     UI --> BROWSER["Your browser"]
@@ -123,7 +146,8 @@ flowchart LR
 ```
 
 The backend talks to the data feed through a common provider interface, streams prices to the UI
-over WebSockets and serves the analysis cache over REST. The UI is a React 18 app; its production
+over WebSockets, computes the volatility cones in the background and serves the analysis cache over
+REST. The UI is a React 18 app; its production
 build is committed in `frontend_build/`, so running the terminal never requires Node.js.
 
 ```text
@@ -132,6 +156,7 @@ QuantumTerminal/
 │   ├── launcher.py          entry point: config, UI serving, command-line options
 │   ├── data_server.py       REST API + WebSocket price streams
 │   ├── providers/           MetaTrader 5, Rithmic, the simulated market (+ Tradovate proof of concept)
+│   ├── local_analysis/      volatility cones from the feed's daily bars (GBM, MJD, Bates)
 │   ├── security.py          local-only API guard (cross-site / DNS-rebinding protection)
 │   └── tests/               pytest suite — runs without a broker
 ├── frontend/                React source of the UI (Create React App)
@@ -148,6 +173,7 @@ QuantumTerminal/
 | `--port 8600` | `MK_PORT` | HTTP port (default `8502`) |
 | `--no-browser` | `MK_NO_BROWSER=1` | Don't open the system browser |
 | | `MK_UPDATE_CHECK=0` | Don't check GitHub for a newer release (the answer is cached for 10 minutes) |
+| | `MK_LOCAL_ANALYSIS=0` | Don't compute the volatility cones locally |
 | | `MK_FRONTEND_DIR` | Serve a different UI build |
 | | `MK_ALLOWED_HOSTS` | Extra host names allowed to reach the API, e.g. a LAN address (`*` disables the check) |
 | | `MK_CORS_ORIGINS` | Extra browser origins allowed to call the API (default: `http://localhost:3000`) |
@@ -190,8 +216,8 @@ Found a vulnerability? Please report it privately; see [SECURITY.md](SECURITY.md
 
 ## Roadmap
 
-- **Local quant engine** — compute cones, bands and regimes from the feed's own bars, so the analysis
-  panels work without external data.
+- **Local quant engine, next steps** — the cones are computed locally; bands, regimes and options
+  levels are next, so every panel works without external data.
 - **More brokers** — Interactive Brokers, Alpaca and others through the provider interface
   (`providers/sim_provider.py` is a complete example).
 - **Translations** — the Learning Center already supports English and Arabic; the rest of the UI is

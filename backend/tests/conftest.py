@@ -18,6 +18,7 @@ os.environ["APPDATA"] = str(_SANDBOX / "AppData" / "Roaming")
 os.environ["MK_USER_DATA_DIR"] = str(_SANDBOX / "Documents" / "Quantum Terminal")
 os.environ.pop("MK_PROVIDER", None)
 os.environ["MK_UPDATE_CHECK"] = "0"   # never call the GitHub API from tests
+os.environ["MK_LOCAL_ANALYSIS"] = "0"  # tests run the cone engine explicitly
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
