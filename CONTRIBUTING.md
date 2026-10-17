@@ -1,6 +1,6 @@
-# Contributing to QuantumTerminal
+# Contributing to Quantum Terminal
 
-Thank you for your interest in contributing to QuantumTerminal! This is a free, open-source project and we welcome contributions from developers of all experience levels.
+Thank you for your interest in contributing to Quantum Terminal! This is a free, open-source project and we welcome contributions from developers of all experience levels.
 
 ---
 
@@ -9,6 +9,7 @@ Thank you for your interest in contributing to QuantumTerminal! This is a free, 
 - [Code of Conduct](#code-of-conduct)
 - [How Can I Contribute?](#how-can-i-contribute)
 - [Getting Started](#getting-started)
+- [Working on the UI](#working-on-the-ui)
 - [Development Workflow](#development-workflow)
 - [Commit Message Guidelines](#commit-message-guidelines)
 - [Pull Request Process](#pull-request-process)
@@ -29,9 +30,10 @@ There are many ways to contribute, regardless of your skill level:
 
 | Area | Description | Skills Needed |
 |------|-------------|---------------|
+| **Local Quant Engine** | Compute cones / bands / regimes from provider bars so the analysis panels work without pre-computed data | Python, NumPy, Quant |
 | **New Broker Providers** | Add Interactive Brokers, Alpaca, or other providers (implement `providers/base_provider.py`; `providers/sim_provider.py` is a complete example) | Python, REST/WebSocket APIs |
-| **Local Quant Engine** | Compute cones / bands / probability fields from provider bars so the analysis panels work without an external data server | Python, NumPy, Quant |
-| **Open-Source React UI** | Rebuild the frontend as open-source JSX/React source | React, TypeScript |
+| **UI** | Improve the React UI in `frontend/` (see [Working on the UI](#working-on-the-ui)) | React, JavaScript |
+| **Translations** | The Learning Center is in English and Arabic; translate more of the UI or add a language | Any language you speak |
 | **Backend Architecture** | Refactor and improve the FastAPI backend structure | Python, FastAPI |
 | **Documentation** | Improve setup guides, add inline comments, write wiki pages | Markdown, Python |
 | **Testing** | Extend the pytest suite in `backend/tests/` (providers, routes, data manager) | Python, pytest |
@@ -51,9 +53,9 @@ There are many ways to contribute, regardless of your skill level:
 ### Prerequisites
 
 - Python 3.10+
-- Node.js (optional, for Electron packaging)
 - Git
-- A broker account for live data (MT5, Rithmic, or Tradovate) — optional: `--sim` gives you a realistic simulated market with paper trading on any OS
+- Node.js 22 — only to change the UI (`frontend/`) or run the Electron shell
+- A broker account for live data (MetaTrader 5 or Rithmic) — optional: `--sim` gives you a realistic simulated market with paper trading on any OS
 
 ### Local Setup
 
@@ -87,12 +89,37 @@ New features should come with tests. The simulated provider takes an injectable 
 
 ---
 
+## Working on the UI
+
+The React source is in `frontend/`; the backend serves the production build committed in `frontend_build/`.
+
+```bash
+# terminal 1 — backend on the simulated market
+cd backend && python launcher.py --sim --no-browser
+
+# terminal 2 — UI with hot reload on http://localhost:3000
+cd frontend
+npm ci
+npm start
+```
+
+When you are done, run `npm run build` (it writes to `../frontend_build`) and commit the rebuilt
+`frontend_build/` in the same commit as your source change. CI rebuilds the UI and fails if the two
+differ, and it builds with `CI=true`, so lint warnings fail the build too. Dependencies are pinned
+exactly — use `npm ci`, not `npm install`, unless you are deliberately upgrading one.
+
+Learning Center articles live in `frontend/src/components/learning/articles/`; every text has an
+`en` and an `ar` version. See [frontend/README.md](frontend/README.md) for the layout of the UI code
+and how to add an article.
+
+---
+
 ## Development Workflow
 
 1. **Fork** the repository and create your branch from `main`
 2. **Name your branch** descriptively: `feature/add-ibkr-provider` or `fix/mt5-thread-safety`
 3. **Make your changes** with clear, focused commits
-4. **Test your changes** before submitting (`python -m pytest` in `backend/`)
+4. **Test your changes** before submitting (`python -m pytest` in `backend/`; `npm run build` in `frontend/` for UI changes)
 5. **Open a Pull Request** with a clear description of what you changed and why
 
 ---
