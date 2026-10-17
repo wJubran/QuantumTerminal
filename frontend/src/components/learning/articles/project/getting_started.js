@@ -90,6 +90,10 @@ export default {
           ar: "--no-browser — عدم فتح المتصفح تلقائياً.",
         },
         {
+          en: "Cones: on a chart, open the ▾ next to CONES and pick DAILY, WEEKLY, MONTHLY or QUARTERLY (and BATES for the Bates model). They are ready a few seconds after start-up; set MK_LOCAL_ANALYSIS=0 to turn the computation off.",
+          ar: "الـ cones: على الشارت افتح السهم ▾ بجانب CONES واختر DAILY أو WEEKLY أو MONTHLY أو QUARTERLY (وBATES لنموذج Bates). تكون جاهزة بعد التشغيل بثوانٍ؛ ولإيقاف حسابها اضبط MK_LOCAL_ANALYSIS=0.",
+        },
+        {
           en: "Connect MetaTrader 5 from ⚙ Settings → PROVIDERS: TERMINAL PATH (leave it blank to auto-detect the default install) or LOGIN CREDENTIALS (server + login).",
           ar: "اربط MetaTrader 5 من ⚙ Settings ← PROVIDERS: إما TERMINAL PATH (اتركه فارغاً لاكتشاف التثبيت الافتراضي تلقائياً) أو LOGIN CREDENTIALS (السيرفر وبيانات الدخول).",
         },

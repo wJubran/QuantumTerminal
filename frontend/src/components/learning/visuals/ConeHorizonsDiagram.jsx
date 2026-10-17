@@ -14,7 +14,7 @@ export default function ConeHorizonsDiagram({ lang = "en" }) {
   // Each horizon: { endX, spread (sd2 offset), color, label }
   // Wider horizon → more forward distance AND more vertical spread.
   const horizons = [
-    { endX: 220, spread: 18, color: "#22d3ee", label: "NOW (3d)" },
+    { endX: 220, spread: 18, color: "#22d3ee", label: "DAILY (1d)" },
     { endX: 265, spread: 30, color: "#3796ff", label: "WEEKLY (7d)" },
     { endX: 340, spread: 55, color: "#ff6d00", label: "MONTHLY (30d)" },
     { endX: 435, spread: 82, color: "#e8383b", label: "QUARTERLY (90d)" },
