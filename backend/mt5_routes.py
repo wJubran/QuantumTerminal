@@ -323,7 +323,24 @@ def create_mt5_router(cfg_manager, app) -> APIRouter:
     # ── GET /api/mt5/status ──
     @router.get("/status")
     async def get_mt5_status():
-        """Quick status check — used by settings panel."""
+        """Quick status check — used by the settings panel and the exposure
+        strip (balance / equity / connection badge)."""
+        # Paper trading on the built-in simulator: report the paper account,
+        # so the account displays work exactly as with a live MT5 account.
+        execution = cfg_manager.get_execution_provider()
+        if execution is not None and getattr(execution, "is_simulated", False):
+            info = await asyncio.to_thread(execution.get_account_info) if execution.connected else None
+            account = None
+            if info is not None:
+                account = {
+                    "login": info.account_id,
+                    "server": info.server,
+                    "balance": info.balance,
+                    "equity": info.equity,
+                    "currency": info.currency,
+                }
+            return {"connected": execution.connected, "account": account, "simulated": True}
+
         provider = cfg_manager.get_provider("mt5_default")
         connected = provider.connected if provider else False
         account = None

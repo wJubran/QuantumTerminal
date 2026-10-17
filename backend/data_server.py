@@ -422,9 +422,9 @@ async def focus_tick_loop(app_state, manager: ConnectionManager, cfg_manager: Co
     last_active = None
     while True:
         try:
-            mt5_cfg = (cfg_manager.get_config().get("providers", {})
-                       .get("accounts", {}).get("mt5_default", {}) or {})
-            use_tick = bool(mt5_cfg.get("use_tick_data", False))
+            # USE TICK DATA of the active data account (mt5_default unless
+            # another provider — e.g. the simulator — is active).
+            use_tick = bool(cfg_manager.get_active_data_account().get("use_tick_data", False))
             sym = get_focused_symbol()
             provider = app_state.provider
 
@@ -1193,6 +1193,8 @@ async def health():
             "type": provider.provider_type if provider else None,
             "label": provider.label if provider else None,
             "connected": mt5_connected,
+            # True when prices come from the built-in simulator (not a market)
+            "simulated": bool(getattr(provider, "is_simulated", False)),
         },
         # v11+ structured component view
         "overall": overall,
