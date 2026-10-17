@@ -14,6 +14,7 @@ import coneModels       from "./quant/cone_models";
 import coneHorizons     from "./quant/cone_horizons";
 import regimes          from "./quant/regimes";
 import quantAnalysisPage from "./terminal_pages/quant_analysis";
+import fundamentalPage   from "./terminal_pages/fundamental";
 import optionsHeatmapPage from "./terminal_pages/options_heatmap";
 import optionsLevelsPage  from "./terminal_pages/options_levels";
 import meanReversion from "./setups/mean_reversion";
@@ -34,6 +35,7 @@ export const ARTICLES = [
   regimes,
   gex,
   quantAnalysisPage,
+  fundamentalPage,
   optionsHeatmapPage,
   optionsLevelsPage,
   meanReversion,

@@ -1103,6 +1103,16 @@ async def get_fundamental_state():
         from data_sync_client import get_sync_client
         data = get_sync_client().get_fundamentals()
         if data:
+            # The page shows the file's age: work it out now, not when it was written.
+            computed = data.get("computed_at")
+            if isinstance(computed, str):
+                try:
+                    age = (datetime.now(timezone.utc)
+                           - datetime.fromisoformat(computed.replace("Z", "+00:00"))).total_seconds() / 3600
+                    data = {**data, "_meta": {**(data.get("_meta") or {}), "age_hours": round(max(age, 0.0), 2),
+                                              "stale": age > 48}}
+                except ValueError:
+                    pass
             return data
     except Exception as e:
         log.warning(f"[FUNDAMENTAL] fundamental_state failed: {e}")
