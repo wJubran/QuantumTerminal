@@ -8,6 +8,7 @@
 
 [English](README.md) · **العربية**
 
+[![Release](https://img.shields.io/github/v/release/wJubran/QuantumTerminal?color=ff6d00)](https://github.com/wJubran/QuantumTerminal/releases/latest)
 [![CI](https://github.com/wJubran/QuantumTerminal/actions/workflows/ci.yml/badge.svg)](https://github.com/wJubran/QuantumTerminal/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ebd59.svg)](LICENSE)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3796ff.svg)
@@ -221,7 +222,7 @@ npm start              # or: npm run start:sim
 - **الـ CI** يشغّل الاختبارات على Linux وWindows مع Python 3.10 و3.12، ويعيد بناء الواجهة للتأكد
   من تطابق <code dir="ltr">frontend_build/</code> مع الكود المصدري، ويفحص غلاف Electron.
 
-راجع [CONTRIBUTING.md](CONTRIBUTING.md) لطريقة المساهمة.
+راجع [CONTRIBUTING.md](CONTRIBUTING.md) لطريقة المساهمة، و[CHANGELOG.md](CHANGELOG.md) لما تغيّر في كل إصدار.
 
 ## الأمان
 
