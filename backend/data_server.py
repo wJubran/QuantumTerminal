@@ -1085,12 +1085,12 @@ async def health():
     }
 
     # License / auth — Quantum Terminal: always free
-    components[\"license\"] = {
-        \"status\": \"ok\",
-        \"user_email\": \"free@quantumterminal\",
-        \"subscription_status\": \"active\",
-        \"subscription_type\": \"free\",
-        \"offline\": False,
+    components["license"] = {
+        "status": "ok",
+        "user_email": "free@quantumterminal",
+        "subscription_status": "active",
+        "subscription_type": "free",
+        "offline": False,
     }
 
     # Sync status
@@ -1844,6 +1844,26 @@ async def get_forest(ticker: str, scenario: str = "mixed"):
 
 
 # REMOVED: /api/cones/manual (Rule C1 — computation endpoint)
+
+
+def _to_pips(ticker: str, distance: float) -> float:
+    """Convert an absolute price distance into pips for the performance stats.
+    FX pips are the 4th decimal (2nd for JPY pairs); metals, energy and
+    indices use their conventional pip (0.1 gold, 0.01 silver/oil, 1 point)."""
+    from server_config import ASSET_CLASSES
+    fiat = {"EUR", "USD", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD",
+            "SEK", "NOK", "DKK", "SGD", "HKD", "ZAR", "MXN", "PLN", "CNH"}
+    t = (ticker or "").upper()
+    is_fx = ASSET_CLASSES.get(t) == "FX" or (len(t) == 6 and t[:3] in fiat and t[3:] in fiat)
+    if is_fx:
+        pip = 0.01 if t.endswith("JPY") else 0.0001
+    elif t == "XAUUSD":
+        pip = 0.1
+    elif t in ("XAGUSD", "XTIUSD", "XBRUSD"):
+        pip = 0.01
+    else:
+        pip = 1.0
+    return round(abs(distance) / pip, 1)
 
 
 @app.get("/api/performance/summary")

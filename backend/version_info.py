@@ -8,7 +8,7 @@ Exposes:
             current:          "1.0.0",
             latest:           "1.0.0",
             update_available: false,
-            download_url:     "https://github.com/YourUsername/QuantumTerminal/releases",
+            download_url:     "https://github.com/wJubran/QuantumTerminal/releases",
             released_at:      "",
             banner_message:   "",
             telegram_url:     "",
@@ -33,7 +33,7 @@ from fastapi import APIRouter
 
 log = logging.getLogger("qt.version")
 
-DOWNLOAD_BASE = "https://github.com/YourUsername/QuantumTerminal/releases"
+DOWNLOAD_BASE = "https://github.com/wJubran/QuantumTerminal/releases"
 CACHE_TTL_SEC = 600  # 10 min
 
 

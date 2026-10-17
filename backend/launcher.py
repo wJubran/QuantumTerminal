@@ -25,19 +25,37 @@ from pathlib import Path
 
 log = logging.getLogger("mk.launcher")
 
+
+def _resolve_frontend_dir(candidates) -> Path:
+    """Pick the React build to serve. MK_FRONTEND_DIR always wins; otherwise
+    the first candidate that contains an index.html (falls back to the first)."""
+    override = os.environ.get("MK_FRONTEND_DIR")
+    if override:
+        return Path(override).expanduser().resolve()
+    for c in candidates:
+        if (c / "index.html").exists():
+            return c
+    return candidates[0]
+
+
 # — Determine base paths (works for both dev and PyInstaller) —
 if getattr(sys, 'frozen', False):
     # Running as packaged .exe — everything is flat in _MEIPASS
     BASE_DIR = Path(sys._MEIPASS)
     EXE_DIR = Path(sys.executable).parent
     BACKEND_DIR = BASE_DIR          # PyInstaller bundles flat, no backend/ subfolder
-    FRONTEND_DIR = BASE_DIR / "frontend"
+    FRONTEND_DIR = _resolve_frontend_dir([BASE_DIR / "frontend"])
 else:
-    # Running as script (dev mode)
+    # Running as script (dev mode). Prefer a locally rebuilt UI
+    # (terminal_app/build) and fall back to the compiled build shipped
+    # in this repository (frontend_build/).
     BASE_DIR = Path(__file__).resolve().parent
     EXE_DIR = BASE_DIR
     BACKEND_DIR = BASE_DIR
-    FRONTEND_DIR = BASE_DIR.parent / "terminal_app" / "build"
+    FRONTEND_DIR = _resolve_frontend_dir([
+        BASE_DIR.parent / "terminal_app" / "build",
+        BASE_DIR.parent / "frontend_build",
+    ])
 
 PORT = int(os.environ.get("MK_PORT", "8502"))   # v2: Electron passes MK_PORT
 
