@@ -223,24 +223,30 @@ def test_a_source_switch_starts_a_pass_at_once(monkeypatch):
         phases.append(phase)
         return []
 
+    async def fake_macro(broadcast_event):
+        phases.append("macro")
+        return False
+
     monkeypatch.setattr(runner, "_pass", fake_pass)
+    monkeypatch.setattr(runner, "_macro_pass", fake_macro)
     monkeypatch.setattr(runner, "START_DELAY_SEC", 0)
+    one_pass = ["live", "regime", "macro", "replay"]
 
     async def main():
         task = asyncio.create_task(runner.run_loop(object(), interval=3600))
         for _ in range(500):
-            if len(phases) == 2:
+            if len(phases) == len(one_pass):
                 break
             await asyncio.sleep(0.01)
         runner.request_pass()                     # Settings → DATA SOURCES → USE
         for _ in range(500):
-            if len(phases) == 4:
+            if len(phases) == 2 * len(one_pass):
                 break
             await asyncio.sleep(0.01)
         task.cancel()
         return list(phases)
 
-    assert asyncio.run(main()) == ["live", "replay", "live", "replay"]
+    assert asyncio.run(main()) == one_pass * 2
 
 
 def test_runner_can_be_turned_off(monkeypatch):

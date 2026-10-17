@@ -68,7 +68,7 @@ key and no paywall. For live prices without a broker, start with `python launche
 | **Memory** | 4 GB of RAM | The backend itself uses about 150 MB |
 | **Disk space** | About 1 GB free | The Python packages take about 500 MB |
 | **Browser** | A current Chrome, Edge, Firefox or Safari | Or use the desktop app instead |
-| **Internet** | To install; afterwards for the live data sources and the update check | The simulated market and CSV files work offline |
+| **Internet** | To install; afterwards for the live data sources, the macro regime (FRED) and the update check | The simulated market and CSV files work offline |
 | **MetaTrader 5** *(optional)* | The MT5 desktop terminal from your broker, logged in to an account (a demo account is fine) | Windows only. One way to get real prices and place live orders; see [Data sources](#data-sources) for the others |
 | **Node.js** *(optional)* | 20 or newer | Only for the desktop app or to rebuild the UI |
 | **Git** *(optional)* | Any version | Or download the code as a ZIP file |
@@ -224,6 +224,7 @@ electron-builder to distribute it.
 | **Probability bands** | Rolling GBM, MJD and Bates bands that restart at every trading day's open, with their width taken from the last 60 trading days and a 20-day forward fan ([how](#how-the-bands-are-computed)) |
 | **Replay** | Plays back past weekly, monthly and quarterly cones and the daily bands against price, bar by bar |
 | **Pulse Room** | Scanner that ranks your watchlist by where price sits inside its cones and bands |
+| **Regimes** | Each instrument's volatility regime (calm → stressed) from a walk-forward HMM, a 15-minute volatility alarm, and the macro growth/inflation quadrant from FRED data ([how](#how-the-regimes-are-computed)) |
 | **Live charts** | TradingView Lightweight Charts, M1 to D1, several charts in tabs, drawing tools, chart templates, crosshair price/time readout, world clock with trading sessions |
 | **Order entry** | Market, limit and stop orders with stop loss / take profit, and a live risk / reward preview in money and in % of the balance |
 | **Positions** | Open positions with risk, reward and P&L; drag SL/TP lines on the chart, or edit and close from the table; account exposure strip |
@@ -239,14 +240,13 @@ electron-builder to distribute it.
 | Panel | What it shows |
 |---|---|
 | **Options Quant** | Gamma exposure (GEX), call/put walls, max pain and dealer positioning |
-| **Regimes** | Macro and per-asset regime classification, shown as a strip and on the chart |
 | **Fundamental · Money Flow** | Macro dashboard, and sector, country and asset-class rotation |
 | **Options Cockpit** | The options view in Stress Lab |
 
 These panels read pre-computed analysis files from the same local cache the cones and bands are written
 to. **This repository does not produce them yet**, so out of the box they stay empty, and the header
-shows `SERVER ○ NONE` because no data server is configured. Extending the local engine to regimes,
-options levels and the macro pages is the top item on the [roadmap](#roadmap).
+shows `SERVER ○ NONE` because no data server is configured. Extending the local engine to options
+levels and the macro pages is the top item on the [roadmap](#roadmap).
 
 ## Data sources
 
@@ -411,6 +411,38 @@ They are written as `{TICKER}_bands.json` (chart, Pulse Room), and every day's f
 `{TICKER}_bands_replay.json` for the **REPLAY** page. Turn them on with **BANDS** on a chart, or the **B**
 key, and pick GBM, MJD or BATES from its ▾.
 
+## How the regimes are computed
+
+The **REGIMES** strip above the chart has two readings, both computed by the terminal
+(`backend/local_analysis/regimes.py`):
+
+- **MICRO, the instrument's own regime.** A hidden Markov model reads each day's return and the
+  realized volatility of the last 5 days, from the active feed's daily bars.
+  - It uses 2 to 4 states, chosen by BIC and ordered from *calm* to *stressed* by their volatility.
+  - **Walk-forward, no look-ahead:** the model is refitted every month on up to four years of history, and
+    each day is labelled with the filtered probabilities of a model fitted before it. The shading shows
+    what the strip would have shown on each day.
+  - The pill shows the regime expected for today, from the last completed day, and its probability.
+- **⚠ IMMINENT, the 15-minute volatility alarm.**
+  - The last 2,000 15-minute returns are divided by the usual size of moves at that time of day, so the
+    New York open is not mistaken for a regime.
+  - A two-state model (normal / burst) then forecasts the volatility of the next two hours.
+  - IMMINENT appears when that forecast is at least 1.5 times the usual for those hours. Otherwise the chip
+    shows QUIET and the minutes since the last alarm.
+- **MACRO, the economy's quadrant.**
+  - **Growth** is the 3-month change of the S&P 500.
+  - **Inflation** is the 3-month change of the 10-year breakeven rate and of WTI crude.
+  - Each is measured against its typical size over the last three years.
+  - A four-state HMM pinned to the corners turns them into GOLDILOCKS (growth up, inflation down),
+    REFLATION (both up), STAGFLATION (growth down, inflation up) or DEFLATION (both down).
+  - The series come from FRED, free and without a key, so MACRO needs internet access to
+    `fred.stlouisfed.org`.
+
+The results are written as `{TICKER}_regime.json` and `GLOBAL_macro_regime.json`. The daily part is
+rebuilt once per trading day and the alarm with every new 15-minute bar. Turn the shading on with
+**MACRO** or **MICRO** above the chart; the ▾ next to each sets the opacity, hides states or paints the
+candles.
+
 ## How it works
 
 ```mermaid
@@ -424,7 +456,8 @@ flowchart LR
     end
     CACHE[("Analysis cache<br/>JSON files")]
     feeds --> API["Python backend<br/>FastAPI · 127.0.0.1:8502"]
-    API -- "daily bars" --> ENGINE["Local analysis<br/>cones · bands"]
+    API -- "daily bars" --> ENGINE["Local analysis<br/>cones · bands · regimes"]
+    FRED["FRED<br/>(macro data)"] --> ENGINE
     ENGINE --> CACHE
     CACHE --> API
     API -- "REST + WebSocket" --> UI["React UI<br/>frontend/"]
@@ -434,8 +467,9 @@ flowchart LR
 
 The backend talks to the active data source through a common provider interface, sends orders to the
 execution account (MetaTrader 5, OANDA or a paper account), streams prices to the UI over WebSockets,
-computes the cones and bands in the background and serves the analysis cache over REST. The UI is a React 18 app; its production
-build is committed in `frontend_build/`, so running the terminal never requires Node.js.
+computes the cones, bands and regimes in the background and serves the analysis cache over REST. The UI
+is a React 18 app; its production build is committed in `frontend_build/`, so running the terminal never
+requires Node.js.
 
 ```text
 QuantumTerminal/
@@ -443,7 +477,7 @@ QuantumTerminal/
 │   ├── launcher.py          entry point: config, UI serving, command-line options
 │   ├── data_server.py       REST API + WebSocket price streams
 │   ├── providers/           data sources (MT5, Yahoo, Binance, OANDA, Alpaca, CSV, Rithmic), simulator, paper account
-│   ├── local_analysis/      cones, bands and Replay files from the feed's daily bars
+│   ├── local_analysis/      cones, bands, regimes and Replay files from the feed's bars
 │   ├── security.py          local-only API guard (cross-site / DNS-rebinding protection)
 │   └── tests/               pytest suite — runs without a broker
 ├── frontend/                React source of the UI (Create React App)
@@ -463,7 +497,7 @@ QuantumTerminal/
 | `--port 8600` | `MK_PORT` | HTTP port (default `8502`) |
 | `--no-browser` | `MK_NO_BROWSER=1` | Don't open the system browser |
 | | `MK_UPDATE_CHECK=0` | Don't check GitHub for a newer release (the answer is cached for 10 minutes) |
-| | `MK_LOCAL_ANALYSIS=0` | Don't compute the cones and bands locally |
+| | `MK_LOCAL_ANALYSIS=0` | Don't compute the cones, bands and regimes locally |
 | | `MK_FRONTEND_DIR` | Serve a different UI build |
 | | `MK_ALLOWED_HOSTS` | Extra host names allowed to reach the API, e.g. a LAN address (`*` disables the check) |
 | | `MK_CORS_ORIGINS` | Extra browser origins allowed to call the API (default: `http://localhost:3000`) |
@@ -498,8 +532,8 @@ Found a vulnerability? Please report it privately; see [SECURITY.md](SECURITY.md
 
 ## Roadmap
 
-- **Local quant engine, next steps** — the cones and bands are computed locally; regimes and options
-  levels are next, so every panel works without external data.
+- **Local quant engine, next steps** — the cones, bands and regimes are computed locally; options levels
+  and the macro pages are next, so every panel works without a data server.
 - **More brokers** — Interactive Brokers, and orders on Alpaca, through the provider interface. A
   data source is about 100 lines: see `providers/binance_provider.py`.
 - **Translations** — the Learning Center already supports English and Arabic; the rest of the UI is
@@ -536,6 +570,9 @@ Finance may be delayed.
 - **الـ bands الاحتمالية:** تبدأ من جديد عند افتتاح كل يوم تداول ويُحسب اتساعها من آخر 60 يوم تداول،
   فتتحرك مع السعر، مع توقّع لـ 20 يوم تداول قادمة. وصفحة REPLAY تعيد عرض الـ cones والـ bands السابقة
   أمام حركة السعر شمعة بشمعة.
+- **الـ Regimes:** حالة التقلب لكل أداة من الهدوء (calm) إلى الضغط (stressed)، وتنبيه IMMINENT عند توقّع
+  انفجار في التقلب خلال ساعتين، وربع الاقتصاد الكلي (GOLDILOCKS وREFLATION وSTAGFLATION وDEFLATION) من
+  بيانات FRED، وكلها دون النظر إلى المستقبل.
 - **شارت حي:** من M1 إلى D1، عدة شارتات في تبويبات، أدوات رسم، قوالب، وساعة عالمية بجلسات التداول.
 - **الأوامر والصفقات:** أوامر market وlimit وstop مع SL/TP، ومعاينة فورية للمخاطرة والعائد، وسحب خطوط
   SL/TP على الشارت.
@@ -548,8 +585,8 @@ Finance may be delayed.
 - **الأمان:** السيرفر محلي فقط، ولا تستطيع أي صفحة ويب تزورها إرسال أوامر عبر منصتك، ومفاتيح الـ API لا
   تغادر جهازك إلا إلى مصدرها.
 
-لوحات Options Quant وRegimes وFundamental وMoney Flow تحتاج بيانات تحليل محسوبة مسبقاً لا ينتجها
-المستودع بعد، فتبقى فارغة حالياً. التفاصيل في [النسخة العربية الكاملة](README.ar.md).
+لوحات Options Quant وFundamental وMoney Flow تحتاج بيانات تحليل محسوبة مسبقاً لا ينتجها المستودع بعد،
+فتبقى فارغة حالياً. التفاصيل في [النسخة العربية الكاملة](README.ar.md).
 
 ### المتطلبات
 
@@ -560,7 +597,7 @@ Finance may be delayed.
 | **الذاكرة** | ذاكرة بسعة 4 غيغابايت | الـ backend نفسه يستهلك نحو 150 ميغابايت |
 | **مساحة القرص** | نحو 1 غيغابايت فارغة | حزم Python تأخذ نحو 500 ميغابايت |
 | **المتصفح** | نسخة حديثة من Chrome أو Edge أو Firefox أو Safari | أو استخدم تطبيق سطح المكتب بدلاً منه |
-| **الإنترنت** | للتثبيت، ثم لمصادر البيانات الحية والتحقق من التحديثات | السوق المحاكى وملفات CSV تعمل دون إنترنت |
+| **الإنترنت** | للتثبيت، ثم لمصادر البيانات الحية والـ regime الكلي (FRED) والتحقق من التحديثات | السوق المحاكى وملفات CSV تعمل دون إنترنت |
 | **MetaTrader 5** ‏(اختياري) | منصة MT5 من وسيطك، مع تسجيل الدخول إلى حساب (الحساب التجريبي يكفي) | على Windows فقط، وهي إحدى طرق الحصول على أسعار حقيقية وإرسال أوامر حية، والطرق الأخرى في [مصادر البيانات](#مصادر-البيانات) |
 | **Node.js** ‏(اختياري) | الإصدار 20 أو أحدث | فقط لتطبيق سطح المكتب أو لإعادة بناء الواجهة |
 | **Git** ‏(اختياري) | أي إصدار | أو حمّل الكود كملف ZIP |
