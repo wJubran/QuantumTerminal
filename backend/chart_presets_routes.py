@@ -21,7 +21,7 @@ from pydantic import BaseModel
 import config_manager
 
 
-log = logging.getLogger("mk.chart_presets_routes")
+log = logging.getLogger("qt.chart_presets_routes")
 
 # Pydantic body model — accepts the full chart-style shape but is permissive
 # on field presence so future shape changes don't break the API.

@@ -14,11 +14,13 @@ FORBIDDEN = [re.compile(p, re.IGNORECASE) for p in [
     "tick" + "mill",                     # broker affiliate link
     r"t\.me/",                           # Telegram links
     r"\bMK " + "Terminal",
+    "MK_DATA" + "_CENTER",               # the producer's private data folder
+    r"getLogger\(['\"]" + r"mk\b",       # logger names print in every console line
 ]]
 PRICE = re.compile(r"\$\s?(29|49|59|119)\b(?!\.\d)")
 
-SCANNED = ["frontend/src", "frontend/public", "frontend_build", "backend", "electron_shell",
-           "README.md", "README.ar.md", "CONTRIBUTING.md", "social-preview.svg"]
+SCANNED = ["frontend/src", "frontend/public", "frontend_build", "backend", "electron_shell", ".github",
+           "README.md", "README.ar.md", "CONTRIBUTING.md", "SECURITY.md", "social-preview.svg"]
 TEXT_SUFFIXES = {".py", ".js", ".jsx", ".json", ".html", ".css", ".md", ".svg", ".txt", ".yml", ".ini"}
 
 

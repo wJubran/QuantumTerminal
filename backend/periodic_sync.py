@@ -34,7 +34,7 @@ from typing import Awaitable, Callable
 
 from pulse_room.sync_hook import on_sync_complete as _pulse_on_sync_complete
 
-log = logging.getLogger("mk.periodic_sync")
+log = logging.getLogger("qt.periodic_sync")
 
 DEFAULT_INTERVAL_SECONDS = 300  # 5 minutes
 MIN_INTERVAL_SECONDS = 60       # safety floor

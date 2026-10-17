@@ -1656,29 +1656,28 @@ async def get_quarterly_cones(ticker: str):
     raise HTTPException(404, f"No quarterly cone data for {canonical}")
 
 
-# v14: TEMPORARY dev-only route. Reads the producer's bands-replay JSON
-#      directly from D:\MK_DATA_CENTER\temp_out so the replay view can
-#      render the new per-day anchor schema before the real sync pipeline
-#      exists. Delete this function (and its import side-effects) to revert.
 @app.get("/api/bands_replay/{ticker}")
 async def get_bands_replay(ticker: str):
-    """Bands-replay prototype — reads {TICKER}_bands_replay.json from
-    D:\\MK_DATA_CENTER\\temp_out (dev path only). Schema matches
+    """Bands replay for the REPLAY sub-tab — {TICKER}_bands_replay.json from
+    the analysis cache (same lookup as /api/historical_cones). Schema matches
     /api/historical_cones but with a 'daily' bucket, a 'head' warm-start
-    block, and fusion_instructions metadata. Returns 404 if the file
-    isn't present (non-XAUUSD tickers, production boxes, etc)."""
+    block, and fusion_instructions metadata. 404 when no file exists.
+    (Previously a dev-only route that read a fixed folder on the producer's
+    machine.)"""
     import json as _json
-    from pathlib import Path as _Path
     canonical = ticker.upper()
-    test_dir = _Path(r"D:\MK_DATA_CENTER\temp_out")
-    path = test_dir / f"{canonical}_bands_replay.json"
-    if not path.is_file():
-        raise HTTPException(404, f"No bands_replay data for {canonical}")
     try:
-        return _json.loads(path.read_text(encoding="utf-8"))
+        from data_sync_client import _get_cache_dir
+        cache_dir = _get_cache_dir()
+        for path in (
+            cache_dir / f"{canonical}_bands_replay.json",
+            cache_dir / f"GLOBAL_{canonical.lower()}_bands_replay.json",
+        ):
+            if path.is_file():
+                return _json.loads(path.read_text(encoding="utf-8"))
     except Exception as e:
         log.warning(f"bands_replay load failed for {canonical}: {e}")
-        raise HTTPException(500, f"bands_replay parse failed for {canonical}")
+    raise HTTPException(404, f"No bands_replay data for {canonical}")
 
 
 @app.get("/api/scalp_bands/{ticker}")

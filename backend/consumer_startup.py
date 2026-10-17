@@ -35,7 +35,7 @@ This module does NOT introduce any calculation triggers.
 import logging
 from typing import Optional
 
-log = logging.getLogger("mk.consumer_startup")
+log = logging.getLogger("qt.consumer_startup")
 
 
 # ============================================================

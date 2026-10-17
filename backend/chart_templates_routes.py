@@ -25,7 +25,7 @@ from pydantic import BaseModel
 import config_manager
 
 
-log = logging.getLogger("mk.chart_templates_routes")
+log = logging.getLogger("qt.chart_templates_routes")
 
 
 # Permissive body model: a template carries a sourceTicker, a config dict

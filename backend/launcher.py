@@ -23,7 +23,7 @@ import shutil
 import logging
 from pathlib import Path
 
-log = logging.getLogger("mk.launcher")
+log = logging.getLogger("qt.launcher")
 
 
 def _resolve_frontend_dir(candidates) -> Path:
