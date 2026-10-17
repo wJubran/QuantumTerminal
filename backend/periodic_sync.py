@@ -1,4 +1,6 @@
-# version: v2
+# version: v3
+# v3 — consumer_config.ini AppData fallback comes from app_paths (every
+#      platform, same dir as the rest of the backend).
 """
 ================================================================================
 Quantum Terminal Consumer — Periodic Data Sync Poller
@@ -23,15 +25,12 @@ This module does NOT introduce any calculation triggers.
 
 import asyncio
 import logging
-import os
-
-# v2: AppData dir name (env-var driven; default "QuantumTerminal" preserves v1 path).
-APP_DIR = os.environ.get("MK_APP_DIR_NAME", "QuantumTerminal")
 import configparser
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Awaitable, Callable
 
+import app_paths  # v3: per-user app-data dir, shared by every module
 from pulse_room.sync_hook import on_sync_complete as _pulse_on_sync_complete
 
 log = logging.getLogger("qt.periodic_sync")
@@ -58,9 +57,7 @@ def _read_interval() -> int:
     if getattr(_sys, "frozen", False):
         candidates.append(Path(_sys.executable).parent / "consumer_config.ini")
 
-    appdata = os.environ.get("APPDATA", "")
-    if appdata:
-        candidates.append(Path(appdata) / APP_DIR / "consumer_config.ini")
+    candidates.append(app_paths.app_data_dir() / "consumer_config.ini")
 
     for p in candidates:
         if not p.exists():
