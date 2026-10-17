@@ -29,12 +29,12 @@ There are many ways to contribute, regardless of your skill level:
 
 | Area | Description | Skills Needed |
 |------|-------------|---------------|
-| **MT5 Thread Safety** | Fix concurrency issues in `backend/data_server.py` | Python, Threading |
-| **New Broker Providers** | Add Interactive Brokers, Alpaca, or other providers | Python, REST/WebSocket APIs |
+| **New Broker Providers** | Add Interactive Brokers, Alpaca, or other providers (implement `providers/base_provider.py`; `providers/sim_provider.py` is a complete example) | Python, REST/WebSocket APIs |
+| **Local Quant Engine** | Compute cones / bands / probability fields from provider bars so the analysis panels work without an external data server | Python, NumPy, Quant |
 | **Open-Source React UI** | Rebuild the frontend as open-source JSX/React source | React, TypeScript |
 | **Backend Architecture** | Refactor and improve the FastAPI backend structure | Python, FastAPI |
 | **Documentation** | Improve setup guides, add inline comments, write wiki pages | Markdown, Python |
-| **Testing** | Add unit and integration tests for backend modules | Python, pytest |
+| **Testing** | Extend the pytest suite in `backend/tests/` (providers, routes, data manager) | Python, pytest |
 
 ### Other Ways to Help
 
@@ -53,7 +53,7 @@ There are many ways to contribute, regardless of your skill level:
 - Python 3.10+
 - Node.js (optional, for Electron packaging)
 - Git
-- A broker account for live data (MT5, Rithmic, or Tradovate) — optional for backend-only work
+- A broker account for live data (MT5, Rithmic, or Tradovate) — optional: `--sim` gives you a realistic simulated market with paper trading on any OS
 
 ### Local Setup
 
@@ -63,16 +63,27 @@ There are many ways to contribute, regardless of your skill level:
 git clone https://github.com/YOUR_USERNAME/QuantumTerminal.git
 cd QuantumTerminal
 
-# 3. Install Python dependencies
+# 3. Install Python dependencies (+ pytest and ruff)
 cd backend
-pip install fastapi uvicorn websockets watchfiles yfinance MetaTrader5
+pip install -r requirements-dev.txt
 
-# 4. Run the backend server
-python launcher.py
+# 4. Run the terminal on the simulated market (no broker needed)
+python launcher.py --sim        # or just `python launcher.py` with MetaTrader 5
 
 # 5. Open the UI
 # Navigate to http://127.0.0.1:8502 in your browser
 ```
+
+### Tests and checks
+
+Run these from `backend/` before opening a pull request — CI runs the same on Linux and Windows:
+
+```bash
+ruff check --select E9,F63,F7,F82 .   # syntax errors and undefined names
+python -m pytest                      # full suite, no broker or MT5 needed
+```
+
+New features should come with tests. The simulated provider takes an injectable clock (`SimProvider(config, clock=...)`), which makes time-dependent behaviour (new bars, stop-loss triggers) deterministic to test.
 
 ---
 
@@ -81,7 +92,7 @@ python launcher.py
 1. **Fork** the repository and create your branch from `main`
 2. **Name your branch** descriptively: `feature/add-ibkr-provider` or `fix/mt5-thread-safety`
 3. **Make your changes** with clear, focused commits
-4. **Test your changes** before submitting
+4. **Test your changes** before submitting (`python -m pytest` in `backend/`)
 5. **Open a Pull Request** with a clear description of what you changed and why
 
 ---
