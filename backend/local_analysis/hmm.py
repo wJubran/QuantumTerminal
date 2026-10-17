@@ -56,11 +56,6 @@ class HMM:
         return p / p.sum()
 
 
-def _logsumexp(a: np.ndarray, axis: int) -> np.ndarray:
-    m = np.max(a, axis=axis, keepdims=True)
-    m = np.where(np.isfinite(m), m, 0.0)
-    return np.squeeze(m, axis=axis) + np.log(np.sum(np.exp(a - m), axis=axis))
-
 
 def _log_emission(x: np.ndarray, means: np.ndarray, variances: np.ndarray) -> np.ndarray:
     """log N(x_t | mean_k, diag(var_k)) for every t and k → (T, K)."""
@@ -69,20 +64,35 @@ def _log_emission(x: np.ndarray, means: np.ndarray, variances: np.ndarray) -> np
                    + np.sum(np.log(2.0 * np.pi * variances), axis=1)[None, :])
 
 
-def _forward(log_b: np.ndarray, log_pi: np.ndarray, log_a: np.ndarray) -> np.ndarray:
-    T, K = log_b.shape
+def _scaled_emissions(x: np.ndarray, means: np.ndarray, variances: np.ndarray):
+    """Emission densities rescaled so each step's largest is 1 → (b, log_scale);
+    the true density is b * exp(log_scale). Avoids underflow on outliers."""
+    log_b = _log_emission(x, means, variances)
+    m = log_b.max(axis=1)
+    return np.exp(log_b - m[:, None]), m
+
+
+def _forward(b: np.ndarray, pi: np.ndarray, a: np.ndarray):
+    """Scaled forward pass → (alpha normalised per step = filtered probabilities,
+    per-step normalisers c; log-likelihood = sum(log c) + sum(log_scale))."""
+    T, K = b.shape
     alpha = np.empty((T, K))
-    alpha[0] = log_pi + log_b[0]
+    c = np.empty(T)
+    v = pi * b[0]
+    c[0] = v.sum()
+    alpha[0] = v / c[0]
     for t in range(1, T):
-        alpha[t] = log_b[t] + _logsumexp(alpha[t - 1][:, None] + log_a, axis=0)
-    return alpha
+        v = (alpha[t - 1] @ a) * b[t]
+        c[t] = v.sum()
+        alpha[t] = v / c[t]
+    return alpha, c
 
 
-def _backward(log_b: np.ndarray, log_a: np.ndarray) -> np.ndarray:
-    T, K = log_b.shape
-    beta = np.zeros((T, K))
+def _backward(b: np.ndarray, a: np.ndarray, c: np.ndarray) -> np.ndarray:
+    T, K = b.shape
+    beta = np.ones((T, K))
     for t in range(T - 2, -1, -1):
-        beta[t] = _logsumexp(log_a + (log_b[t + 1] + beta[t + 1])[None, :], axis=1)
+        beta[t] = a @ (b[t + 1] * beta[t + 1]) / c[t + 1]
     return beta
 
 
@@ -93,21 +103,24 @@ def _as_2d(x) -> np.ndarray:
 
 def filtered(model: HMM, x) -> np.ndarray:
     """P(state_t | x_1..x_t) for every t → (T, K). Uses no future data."""
-    x = _as_2d(x)
-    alpha = _forward(_log_emission(x, model.means, model.variances),
-                     np.log(model.startprob), np.log(model.transmat))
-    return np.exp(alpha - _logsumexp(alpha, axis=1)[:, None])
+    b, _ = _scaled_emissions(_as_2d(x), model.means, model.variances)
+    alpha, _ = _forward(b, model.startprob, model.transmat)
+    return alpha
 
 
 def smoothed(model: HMM, x) -> np.ndarray:
     """P(state_t | x_1..x_T) for every t → (T, K). Uses the whole sample."""
-    x = _as_2d(x)
-    log_b = _log_emission(x, model.means, model.variances)
-    log_a = np.log(model.transmat)
-    alpha = _forward(log_b, np.log(model.startprob), log_a)
-    beta = _backward(log_b, log_a)
-    g = alpha + beta
-    return np.exp(g - _logsumexp(g, axis=1)[:, None])
+    b, _ = _scaled_emissions(_as_2d(x), model.means, model.variances)
+    alpha, c = _forward(b, model.startprob, model.transmat)
+    g = alpha * _backward(b, model.transmat, c)
+    return g / g.sum(axis=1, keepdims=True)
+
+
+def loglik(model: HMM, x) -> float:
+    """Log-likelihood of `x` under the model."""
+    b, scale = _scaled_emissions(_as_2d(x), model.means, model.variances)
+    _, c = _forward(b, model.startprob, model.transmat)
+    return float(np.log(c).sum() + scale.sum())
 
 
 def viterbi(model: HMM, x) -> np.ndarray:
@@ -149,9 +162,45 @@ def _initial_params(x: np.ndarray, k: int, rng: np.random.Generator, attempt: in
     return np.full(k, 1.0 / k), trans, means, variances
 
 
+def n_params(n_states: int, n_features: int) -> int:
+    """Free parameters: start probabilities, transitions, means and variances."""
+    k, d = n_states, n_features
+    return (k - 1) + k * (k - 1) + 2 * k * d
+
+
+def bic(model: HMM, n_obs: int) -> float:
+    return -2.0 * model.loglik + n_params(model.n_states, model.means.shape[1]) * np.log(n_obs)
+
+
+def _em(x, pi, a, mu, var, floor, n_iter, tol):
+    prev = -np.inf
+    for _ in range(n_iter):
+        b, scale = _scaled_emissions(x, mu, var)
+        alpha, c = _forward(b, pi, a)
+        ll = float(np.log(c).sum() + scale.sum())
+        beta = _backward(b, a, c)
+        g = alpha * beta
+        g /= g.sum(axis=1, keepdims=True)
+        xi = a * (alpha[:-1].T @ (b[1:] * beta[1:] / c[1:, None]))
+        w = g.sum(axis=0) + 1e-300
+        pi = np.clip(g[0], 1e-12, None)
+        pi /= pi.sum()
+        a = xi + TRANS_FLOOR
+        a /= a.sum(axis=1, keepdims=True)
+        mu = (g.T @ x) / w[:, None]
+        var = np.maximum((g.T @ (x * x)) / w[:, None] - mu * mu, floor)
+        if ll - prev < tol * max(1.0, abs(ll)):
+            break
+        prev = ll
+    model = HMM(pi, a, mu, var, 0.0)
+    return HMM(pi, a, mu, var, loglik(model, x))
+
+
 def fit(x, n_states: int, seed: int = 0, restarts: int = 4, n_iter: int = 200,
-        tol: float = 1e-6) -> Optional[HMM]:
+        tol: float = 1e-6, init: Optional[HMM] = None) -> Optional[HMM]:
     """Baum-Welch from `restarts` starting points; the best log-likelihood wins.
+    With `init` (a model with the same number of states and features), EM
+    starts from it alone; this is a warm start for refitting on a slightly longer sample.
     None when the sample is too short for the number of states."""
     x = _as_2d(x)
     T, D = x.shape
@@ -159,31 +208,13 @@ def fit(x, n_states: int, seed: int = 0, restarts: int = 4, n_iter: int = 200,
     if k < 1 or T < 10 * k * (D + 1):
         return None
     floor = VAR_FLOOR * (np.var(x, axis=0) + 1e-12)
+    if init is not None and init.n_states == k and init.means.shape[1] == D:
+        return _em(x, init.startprob, init.transmat, init.means,
+                   np.maximum(init.variances, floor), floor, n_iter, tol)
     rng = np.random.default_rng(seed)
     best: Optional[HMM] = None
     for attempt in range(max(1, restarts)):
-        pi, a, mu, var = _initial_params(x, k, rng, attempt)
-        prev = -np.inf
-        for _ in range(n_iter):
-            log_b = _log_emission(x, mu, var)
-            log_a = np.log(a)
-            alpha = _forward(log_b, np.log(pi), log_a)
-            beta = _backward(log_b, log_a)
-            ll = float(_logsumexp(alpha[-1], axis=0))
-            g = np.exp(alpha + beta - ll)                                    # (T, K)
-            xi = np.exp(alpha[:-1, :, None] + log_a[None] + (log_b[1:] + beta[1:])[:, None, :] - ll)
-            w = g.sum(axis=0) + 1e-300
-            pi = np.clip(g[0], 1e-12, None)
-            pi /= pi.sum()
-            a = xi.sum(axis=0) + TRANS_FLOOR
-            a /= a.sum(axis=1, keepdims=True)
-            mu = (g.T @ x) / w[:, None]
-            var = np.maximum((g.T @ (x * x)) / w[:, None] - mu * mu, floor)
-            if ll - prev < tol * max(1.0, abs(ll)):
-                break
-            prev = ll
-        log_b = _log_emission(x, mu, var)
-        ll = float(_logsumexp(_forward(log_b, np.log(pi), np.log(a))[-1], axis=0))
-        if np.isfinite(ll) and (best is None or ll > best.loglik):
-            best = HMM(pi, a, mu, var, ll)
+        model = _em(x, *_initial_params(x, k, rng, attempt), floor, n_iter, tol)
+        if np.isfinite(model.loglik) and (best is None or model.loglik > best.loglik):
+            best = model
     return best
