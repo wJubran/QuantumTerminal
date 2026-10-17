@@ -1,0 +1,44 @@
+name: Release
+
+# Publishes the GitHub release for the version in the VERSION file, with the
+# matching CHANGELOG.md section as its notes. Run it from Actions → Release →
+# Run workflow once the version bump and its CHANGELOG entry are on main.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release; must match the VERSION file (e.g. 1.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::'$VERSION' is not X.Y.Z"; exit 1; }
+          [ "$(tr -d '[:space:]' < VERSION)" = "$VERSION" ] || { echo "::error::the VERSION file says $(cat VERSION)"; exit 1; }
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null; then
+            echo "::error::tag v$VERSION already exists"; exit 1
+          fi
+      - name: Release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          awk -v v="$VERSION" 'index($0, "## [" v "]") == 1 {on = 1; next} on && /^## \[/ {exit} on {print}' \
+            CHANGELOG.md > notes.md
+          [ -s notes.md ] || { echo "::error::CHANGELOG.md has no section for $VERSION"; exit 1; }
+          cat notes.md
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --latest \
+            --title "Quantum Terminal $VERSION" --notes-file notes.md

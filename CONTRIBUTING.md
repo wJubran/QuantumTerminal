@@ -150,6 +150,17 @@ Prefixes: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 
 ---
 
+## Releasing (maintainers)
+
+1. Bump `VERSION` (and `version` in `frontend/package.json` and `electron_shell/package.json`) and add
+   a `## [x.y.z] — date` section at the top of `CHANGELOG.md`; merge that to `main`.
+2. Run **Actions → Release → Run workflow** with the same version. It checks that `VERSION` matches,
+   tags `vx.y.z` and publishes the GitHub release with that CHANGELOG section as its notes.
+
+The terminal's update check offers the newest published (non-pre-release) GitHub release.
+
+---
+
 ## Questions?
 
 Feel free to open an Issue with the `question` label if you need help getting started or have any questions about the codebase.
