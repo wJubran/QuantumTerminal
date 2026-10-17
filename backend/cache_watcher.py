@@ -69,7 +69,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Awaitable, Callable, Optional
 
-log = logging.getLogger("mk.cache_watcher")
+log = logging.getLogger("qt.cache_watcher")
 
 DEFAULT_INTERVAL_SECONDS = 1.0
 MIN_INTERVAL_SECONDS = 0.25

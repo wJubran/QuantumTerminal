@@ -27,7 +27,7 @@ from . import builder, state
 from .state import calc_lock as _calc_lock
 
 
-log = logging.getLogger("mk.pulse_room.routes")
+log = logging.getLogger("qt.pulse_room.routes")
 
 
 # ---------- request models ----------
