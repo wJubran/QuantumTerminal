@@ -231,12 +231,16 @@ logging.basicConfig(
 # 3. WEBSOCKET CONNECTION MANAGER
 # ============================================================
 
+WS_SEND_TIMEOUT = 2.0  # seconds — a healthy local client acks in milliseconds
+
+
 class ConnectionManager:
     """Manages WebSocket connections across channels."""
 
     def __init__(self):
         self._price_clients: Set[WebSocket] = set()
         self._event_clients: Set[WebSocket] = set()
+        self._closing: Set[asyncio.Task] = set()
 
     async def connect_prices(self, ws: WebSocket):
         await ws.accept()
@@ -258,31 +262,41 @@ class ConnectionManager:
 
     async def broadcast_prices(self, message: dict):
         """Send to all price channel subscribers."""
-        if not self._price_clients:
-            return
-        data = json.dumps(message)
-        dead = []
-        for ws in self._price_clients:
-            try:
-                await ws.send_text(data)
-            except Exception:
-                dead.append(ws)
-        for ws in dead:
-            self._price_clients.discard(ws)
+        await self._broadcast(self._price_clients, message)
 
     async def broadcast_event(self, message: dict):
         """Send to all event channel subscribers."""
-        if not self._event_clients:
+        await self._broadcast(self._event_clients, message)
+
+    async def _broadcast(self, clients: Set[WebSocket], message: dict):
+        """Send one message to every client of a channel, concurrently.
+
+        Iterates over a snapshot — a client connecting or disconnecting during
+        the awaits used to raise "Set changed size during iteration" and lose
+        the whole batch. Each send is capped at WS_SEND_TIMEOUT, so one stalled
+        socket can't freeze the feed for everyone; failed or stalled clients
+        are dropped and closed, letting the UI reconnect cleanly."""
+        if not clients:
             return
         data = json.dumps(message)
-        dead = []
-        for ws in self._event_clients:
-            try:
-                await ws.send_text(data)
-            except Exception:
-                dead.append(ws)
-        for ws in dead:
-            self._event_clients.discard(ws)
+        targets = list(clients)
+        results = await asyncio.gather(
+            *(asyncio.wait_for(ws.send_text(data), WS_SEND_TIMEOUT) for ws in targets),
+            return_exceptions=True,
+        )
+        for ws, result in zip(targets, results):
+            if isinstance(result, BaseException):
+                clients.discard(ws)
+                task = asyncio.ensure_future(self._close_quietly(ws))
+                self._closing.add(task)  # keep a reference until it finishes
+                task.add_done_callback(self._closing.discard)
+
+    @staticmethod
+    async def _close_quietly(ws: WebSocket):
+        try:
+            await asyncio.wait_for(ws.close(code=1011), WS_SEND_TIMEOUT)
+        except Exception:
+            pass
 
     @property
     def price_client_count(self) -> int:
