@@ -63,7 +63,7 @@ python launcher.py --sim
 | **الذاكرة** | ذاكرة بسعة 4 غيغابايت | الـ backend نفسه يستهلك نحو 150 ميغابايت |
 | **مساحة القرص** | نحو 1 غيغابايت فارغة | حزم Python تأخذ نحو 500 ميغابايت |
 | **المتصفح** | نسخة حديثة من Chrome أو Edge أو Firefox أو Safari | أو استخدم تطبيق سطح المكتب بدلاً منه |
-| **الإنترنت** | للتثبيت، ثم فقط لـ MetaTrader 5 وصفحة Money Flow والتحقق من التحديثات | السوق المحاكى يعمل دون إنترنت |
+| **الإنترنت** | للتثبيت، ثم فقط لـ MetaTrader 5 والتحقق من التحديثات | السوق المحاكى يعمل دون إنترنت |
 | **MetaTrader 5** ‏(اختياري) | منصة MT5 من وسيطك، مع تسجيل الدخول إلى حساب (الحساب التجريبي يكفي) | على Windows فقط، ومطلوبة للأسعار الحقيقية والأوامر الحية |
 | **Node.js** ‏(اختياري) | الإصدار 20 أو أحدث | فقط لتطبيق سطح المكتب أو لإعادة بناء الواجهة |
 | **Git** ‏(اختياري) | أي إصدار | أو حمّل الكود كملف ZIP |
@@ -217,6 +217,9 @@ npm start              # or: npm run start:sim
 | المجال | ما تحصل عليه |
 |---|---|
 | **الـ Volatility cones** | الـ cones اليومية والأسبوعية والشهرية والفصلية بنماذج GBM وMJD وBates، تحسبها المنصة من الشموع اليومية لمصدر البيانات نفسه ([كيف](#كيف-تحسب-المنصة-الـ-cones)) |
+| **الـ bands الاحتمالية** | نطاقات GBM وMJD وBates تبدأ من جديد عند افتتاح كل يوم تداول، ويُحسب اتساعها من آخر 60 يوم تداول، مع توقّع لـ 20 يوم تداول قادمة ([كيف](#كيف-تحسب-المنصة-الـ-bands)) |
+| **إعادة العرض (Replay)** | تعيد عرض الـ cones الأسبوعية والشهرية والفصلية السابقة والـ bands اليومية أمام حركة السعر، شمعة بشمعة |
+| **Pulse Room** | ماسح يرتّب قائمة المتابعة حسب موقع السعر داخل الـ cones والـ bands |
 | **شارت حي** | مكتبة TradingView Lightweight Charts من M1 إلى D1، وعدة شارتات في تبويبات، وأدوات رسم، وقوالب للشارت، وقراءة السعر والوقت بالـ crosshair، وساعة عالمية مع جلسات التداول |
 | **إدخال الأوامر** | أوامر market وlimit وstop مع stop loss وtake profit، ومعاينة فورية للمخاطرة والعائد بالمبلغ وبالنسبة من الرصيد |
 | **الصفقات** | الصفقات المفتوحة مع المخاطرة والعائد والربح/الخسارة؛ اسحب خطوط SL/TP على الشارت، أو عدّل وأغلق من الجدول؛ وشريط يعرض تعرّض الحساب |
@@ -230,16 +233,15 @@ npm start              # or: npm run start:sim
 
 | اللوحة | ما تعرضه |
 |---|---|
-| **Bands** | نطاقات volatility وانحراف للتداول اليومي |
 | **Options Quant** | الـ gamma exposure ‏(GEX) وجدران call/put والـ max pain ومراكز الـ dealers |
 | **Regimes** | تصنيف الحالة (regime) الكلية للسوق ولكل أصل، كشريط أعلى الشارت وعليه |
-| **Fundamental · Stress Lab · Replay** | لوحة الاقتصاد الكلي، وPulse Room وOptions Cockpit، وإعادة عرض الـ cones السابقة مقابل حركة السعر |
+| **Fundamental · Money Flow** | لوحة الاقتصاد الكلي، ودوران القطاعات والدول وفئات الأصول |
+| **Options Cockpit** | لوحة الخيارات في Stress Lab |
 
 تقرأ هذه اللوحات ملفات تحليل محسوبة مسبقاً من ذاكرة التخزين المحلية (cache) نفسها التي تُكتب فيها
-الـ cones. **هذا المستودع لا ينتج هذه الملفات بعد**، لذلك تبقى هذه اللوحات فارغة بعد التثبيت، ويظهر في
-أعلى المنصة <code dir="ltr">SERVER ○ NONE</code> لأنه لا يوجد سيرفر بيانات مُعدّ. توسيع المحرك
-المحلي ليشمل الـ bands والـ regimes هو أول بند في [خطة التطوير](#خطة-التطوير). أما دوران القطاعات
-والدول في صفحة **Money Flow** فيُجلب مباشرة من Yahoo Finance ‏(yfinance) ويحتاج اتصالاً بالإنترنت.
+الـ cones والـ bands. **هذا المستودع لا ينتج هذه الملفات بعد**، لذلك تبقى هذه اللوحات فارغة بعد التثبيت،
+ويظهر في أعلى المنصة <code dir="ltr">SERVER ○ NONE</code> لأنه لا يوجد سيرفر بيانات مُعدّ. توسيع المحرك
+المحلي ليشمل الـ regimes ومستويات الخيارات وصفحات الاقتصاد الكلي هو أول بند في [خطة التطوير](#خطة-التطوير).
 
 ## صور من المنصة
 
@@ -274,7 +276,7 @@ npm start              # or: npm run start:sim
   التوقعات الماضية.
 - **بدون النظر إلى المستقبل:** معاملات كل cone تُقدَّر فقط من نحو 250 عائداً يومياً *قبل* نقطة بدايته.
 - **النماذج:** GBM (عوائد طبيعية، بصيغة رياضية مباشرة)؛ وMJD (‏GBM مع قفزات Poisson تُقدَّر من الأيام
-  الشاذة، بنسب مئوية دقيقة للتوزيع المختلط)؛ وBates (تذبذب عشوائي من نوع Heston مع القفزات نفسها،
+  التي تبرز مقارنةً بتذبذب وقتها، بنسب مئوية دقيقة للتوزيع المختلط)؛ وBates (تذبذب عشوائي من نوع Heston مع القفزات نفسها،
   بمحاكاة 25,000 مسار Monte Carlo بـ seed ثابت فتتكرر النتائج نفسها).
 - **الخطوط:** الـ median وحدود ±1 و±2 و±3 انحراف معياري (p15.9 / p84.1، وp2.3 / p97.7، وp0.13 / p99.87)،
   مع عائد لوغاريتمي متوقع يساوي صفراً.
@@ -282,14 +284,33 @@ npm start              # or: npm run start:sim
   فلا يتسع الـ cone خلال عطلة نهاية أسبوع يكون فيها السوق مغلقاً.
 
 تُكتب النتائج في ذاكرة التحليل باسمَي <code dir="ltr">{TICKER}_cones.json</code>
-و<code dir="ltr">{TICKER}_quarterly_cones.json</code>، ولا يُكتب أبداً فوق ملف أنتجه مصدر آخر. فعّل
-الـ cones من السهم ▾ بجانب **CONES** (و**BATES**) على الشارت؛ والمتغير
-<code dir="ltr">MK_LOCAL_ANALYSIS=0</code> يوقف حسابها.
+و<code dir="ltr">{TICKER}_quarterly_cones.json</code> (ثمانية أرباع: يعرض الشارت أربعة منها، وصفحة
+**REPLAY** الثمانية كلها)، وتُكتب الـ cones الأسبوعية والشهرية السابقة التي تعيد صفحة **REPLAY** عرضها في
+<code dir="ltr">{TICKER}_historical_cones.json</code>. ولا يُكتب أبداً فوق ملف أنتجه مصدر آخر. فعّل الـ cones
+من السهم ▾ بجانب **CONES** (و**BATES**) على الشارت؛ والمتغير <code dir="ltr">MK_LOCAL_ANALYSIS=0</code>
+يوقف حسابها.
+
+## كيف تحسب المنصة الـ bands
+
+الـ cone توقّع واحد لكل فترة، أما الـ bands فتبدأ من جديد في كل يوم تداول، لذلك تتحرك مع السعر:
+
+- **نقطة البداية:** افتتاح كل يوم تداول، ولا يستخدم التوقّع إلا العوائد التي قبله.
+- **الاتساع:** من تذبذب آخر **60 يوم تداول** دون أيام القفزات. أما شكل الأطراف فيبقى من نافذة الـ cones
+  الطويلة (نحو 250 يوماً): قفزات MJD، والتباين طويل المدى وتذبذب التذبذب والارتباط في Bates. لذلك
+  تستجيب الـ bands لتغيّر التذبذب خلال أسابيع.
+- **التاريخ:** نقطة واحدة لكل يوم بعد الافتتاح بنصف يوم تداول، عند حدود ±1/2/3 انحراف معياري لذلك
+  الأفق. ويصل الشارت هذه النقاط وينعّمها فتتكوّن الأغلفة.
+- **التوقّع للأمام:** آخر يوم يُمدّ 20 يوم تداول إلى الأمام.
+- **الخط الأوسط:** سعر نقطة البداية، وهو مشترك بين النماذج الثلاثة لأن عائدها اللوغاريتمي المتوقع صفر.
+
+تُكتب في <code dir="ltr">{TICKER}_bands.json</code> (للشارت وPulse Room)، ويُكتب توقّع كل يوم في
+<code dir="ltr">{TICKER}_bands_replay.json</code> لصفحة **REPLAY**. فعّلها بزر **BANDS** على الشارت أو
+بمفتاح **B**، واختر GBM أو MJD أو BATES من السهم ▾ بجانبه.
 
 ## كيف تعمل المنصة
 
 يتصل الـ backend بمصدر البيانات عبر واجهة موحّدة للمزوّدين (providers)، ويبث الأسعار إلى الواجهة
-عبر WebSocket، ويحسب الـ volatility cones في الخلفية، ويقدّم ملفات التحليل عبر REST API. الواجهة تطبيق React 18، ونسختها الجاهزة محفوظة
+عبر WebSocket، ويحسب الـ cones والـ bands في الخلفية، ويقدّم ملفات التحليل عبر REST API. الواجهة تطبيق React 18، ونسختها الجاهزة محفوظة
 في المجلد <code dir="ltr">frontend_build/</code>، لذلك لا يحتاج تشغيل المنصة إلى Node.js.
 
 </div>
@@ -303,7 +324,7 @@ flowchart LR
     end
     CACHE[("ذاكرة التحليل المحلية<br/>JSON files")]
     feeds --> API["Python backend<br/>FastAPI · 127.0.0.1:8502"]
-    API -- "daily bars" --> ENGINE["التحليل المحلي<br/>volatility cones"]
+    API -- "daily bars" --> ENGINE["التحليل المحلي<br/>cones · bands"]
     ENGINE --> CACHE
     CACHE --> API
     API -- "REST + WebSocket" --> UI["React UI<br/>frontend/"]
@@ -317,7 +338,7 @@ QuantumTerminal/
 │   ├── launcher.py          entry point: config, UI serving, command-line options
 │   ├── data_server.py       REST API + WebSocket price streams
 │   ├── providers/           MetaTrader 5, Rithmic, the simulated market (+ Tradovate proof of concept)
-│   ├── local_analysis/      volatility cones from the feed's daily bars (GBM, MJD, Bates)
+│   ├── local_analysis/      cones, bands and Replay files from the feed's daily bars
 │   ├── security.py          local-only API guard (cross-site / DNS-rebinding protection)
 │   └── tests/               pytest suite — runs without a broker
 ├── frontend/                React source of the UI (Create React App)
@@ -336,7 +357,7 @@ QuantumTerminal/
 | <code dir="ltr">--port 8600</code> | <code dir="ltr">MK_PORT</code> | منفذ HTTP (الافتراضي 8502) |
 | <code dir="ltr">--no-browser</code> | <code dir="ltr">MK_NO_BROWSER=1</code> | عدم فتح المتصفح تلقائياً |
 | | <code dir="ltr">MK_UPDATE_CHECK=0</code> | عدم التحقق من وجود إصدار أحدث على GitHub (تُحفظ نتيجة التحقق 10 دقائق) |
-| | <code dir="ltr">MK_LOCAL_ANALYSIS=0</code> | عدم حساب الـ volatility cones محلياً |
+| | <code dir="ltr">MK_LOCAL_ANALYSIS=0</code> | عدم حساب الـ cones والـ bands محلياً |
 | | <code dir="ltr">MK_FRONTEND_DIR</code> | تقديم نسخة أخرى من الواجهة |
 | | <code dir="ltr">MK_ALLOWED_HOSTS</code> | أسماء مضيف إضافية مسموح لها بالوصول إلى الـ API، مثل عنوان في الشبكة المحلية (القيمة <code dir="ltr">*</code> تلغي هذا الفحص) |
 | | <code dir="ltr">MK_CORS_ORIGINS</code> | مصادر متصفح إضافية مسموح لها باستدعاء الـ API (الافتراضي <code dir="ltr">http://localhost:3000</code>) |
@@ -370,7 +391,7 @@ QuantumTerminal/
 
 ## خطة التطوير
 
-- **المحرك الكمّي المحلي، الخطوة التالية:** الـ cones تُحسب محلياً؛ والتالي هو الـ bands والـ regimes
+- **المحرك الكمّي المحلي، الخطوة التالية:** الـ cones والـ bands تُحسب محلياً؛ والتالي هو الـ regimes
   ومستويات الخيارات، لتعمل كل اللوحات دون بيانات خارجية.
 - **وسطاء أكثر:** Interactive Brokers وAlpaca وغيرهما عبر واجهة المزوّدين (الملف
   <code dir="ltr">providers/sim_provider.py</code> مثال كامل).

@@ -66,7 +66,7 @@ key and no paywall. New to Python, or want real prices from MetaTrader 5? Follow
 | **Memory** | 4 GB of RAM | The backend itself uses about 150 MB |
 | **Disk space** | About 1 GB free | The Python packages take about 500 MB |
 | **Browser** | A current Chrome, Edge, Firefox or Safari | Or use the desktop app instead |
-| **Internet** | To install; afterwards only for MetaTrader 5, the Money Flow page and the update check | The simulated market works offline |
+| **Internet** | To install; afterwards only for MetaTrader 5 and the update check | The simulated market works offline |
 | **MetaTrader 5** *(optional)* | The MT5 desktop terminal from your broker, logged in to an account (a demo account is fine) | Windows only. Needed for real prices and live orders |
 | **Node.js** *(optional)* | 20 or newer | Only for the desktop app or to rebuild the UI |
 | **Git** *(optional)* | Any version | Or download the code as a ZIP file |
@@ -203,6 +203,9 @@ electron-builder to distribute it.
 | Area | What you get |
 |---|---|
 | **Volatility cones** | DAILY, WEEKLY, MONTHLY and QUARTERLY cones from GBM, MJD and Bates models, computed by the terminal from the feed's own daily bars ([how](#how-the-cones-are-computed)) |
+| **Probability bands** | Rolling GBM, MJD and Bates bands that restart at every trading day's open, with their width taken from the last 60 trading days and a 20-day forward fan ([how](#how-the-bands-are-computed)) |
+| **Replay** | Plays back past weekly, monthly and quarterly cones and the daily bands against price, bar by bar |
+| **Pulse Room** | Scanner that ranks your watchlist by where price sits inside its cones and bands |
 | **Live charts** | TradingView Lightweight Charts, M1 to D1, several charts in tabs, drawing tools, chart templates, crosshair price/time readout, world clock with trading sessions |
 | **Order entry** | Market, limit and stop orders with stop loss / take profit, and a live risk / reward preview in money and in % of the balance |
 | **Positions** | Open positions with risk, reward and P&L; drag SL/TP lines on the chart, or edit and close from the table; account exposure strip |
@@ -216,16 +219,15 @@ electron-builder to distribute it.
 
 | Panel | What it shows |
 |---|---|
-| **Bands** | Volatility and deviation bands for intraday trading |
 | **Options Quant** | Gamma exposure (GEX), call/put walls, max pain and dealer positioning |
 | **Regimes** | Macro and per-asset regime classification, shown as a strip and on the chart |
-| **Fundamental · Stress Lab · Replay** | Macro dashboard, Pulse Room and Options Cockpit, and a replay of past cones against price |
+| **Fundamental · Money Flow** | Macro dashboard, and sector, country and asset-class rotation |
+| **Options Cockpit** | The options view in Stress Lab |
 
-These panels read pre-computed analysis files from the same local cache the cones are written to.
-**This repository does not produce them yet**, so out of the box they stay empty, and the header shows
-`SERVER ○ NONE` because no data server is configured. Extending the local engine to bands and
-regimes is the top item on the [roadmap](#roadmap). The **Money Flow** page's sector and country
-rotation is fetched live from Yahoo Finance (`yfinance`) and needs internet access.
+These panels read pre-computed analysis files from the same local cache the cones and bands are written
+to. **This repository does not produce them yet**, so out of the box they stay empty, and the header
+shows `SERVER ○ NONE` because no data server is configured. Extending the local engine to regimes,
+options levels and the macro pages is the top item on the [roadmap](#roadmap).
 
 ## Screenshots
 
@@ -259,8 +261,8 @@ instrument's cones from the active feed's daily bars (`backend/local_analysis/`)
   month or the quarter — and runs to the end of that period. The chart also shows the previous
   periods' cones, so you can see how past forecasts played out.
 - **No look-ahead:** a cone's parameters come only from the ~250 daily returns *before* its anchor.
-- **Models:** GBM (normal returns, closed form); MJD (GBM plus Poisson jumps fitted from outlier days,
-  exact mixture quantiles); Bates (Heston stochastic variance plus the same jumps, 25,000 Monte Carlo
+- **Models:** GBM (normal returns, closed form); MJD (GBM plus Poisson jumps, fitted from the days that
+  stand out against the volatility of their time; exact mixture quantiles); Bates (Heston stochastic variance plus the same jumps, 25,000 Monte Carlo
   paths with a fixed seed, so results are reproducible).
 - **Lines:** the median and the ±1, ±2 and ±3 standard-deviation quantiles (p15.9 / p84.1,
   p2.3 / p97.7, p0.13 / p99.87), with a zero expected log return.
@@ -268,8 +270,27 @@ instrument's cones from the active feed's daily bars (`backend/local_analysis/`)
   own bars, so a cone does not widen over a closed weekend.
 
 The results are written to the analysis cache as `{TICKER}_cones.json` and
-`{TICKER}_quarterly_cones.json`; a file another producer wrote is never overwritten. Turn the cones on
-from the ▾ next to **CONES** (and **BATES**) on a chart; `MK_LOCAL_ANALYSIS=0` turns the computation off.
+`{TICKER}_quarterly_cones.json` (eight quarters: the chart shows four, the **REPLAY** page all eight), and
+the past weekly and monthly cones the **REPLAY** page plays back as `{TICKER}_historical_cones.json`. A
+file another producer wrote is never overwritten. Turn the cones on from the ▾ next to **CONES** (and
+**BATES**) on a chart; `MK_LOCAL_ANALYSIS=0` turns the computation off.
+
+## How the bands are computed
+
+A cone is one forecast per period. The bands start again every trading day, so they follow the price:
+
+- **Anchor:** every trading day's open. The forecast uses only the returns before it.
+- **Width:** the volatility of the last **60 trading days**, leaving out jump days. The tails keep the
+  cones' long-run shape: MJD's jumps, and Bates' long-run variance, vol of vol and correlation, all from
+  ~250 days. So the bands react to a change in volatility within weeks.
+- **History:** one point per day, half a trading day after the open, at that horizon's ±1/2/3-sigma
+  quantiles. The chart joins and smooths these points into the envelope.
+- **Forward fan:** the newest day is projected 20 trading days ahead.
+- **Centre line:** the anchor price, shared by the three models, which all have a zero expected log return.
+
+They are written as `{TICKER}_bands.json` (chart, Pulse Room), and every day's forward fan as
+`{TICKER}_bands_replay.json` for the **REPLAY** page. Turn them on with **BANDS** on a chart, or the **B**
+key, and pick GBM, MJD or BATES from its ▾.
 
 ## How it works
 
@@ -282,7 +303,7 @@ flowchart LR
     end
     CACHE[("Analysis cache<br/>JSON files")]
     feeds --> API["Python backend<br/>FastAPI · 127.0.0.1:8502"]
-    API -- "daily bars" --> ENGINE["Local analysis<br/>volatility cones"]
+    API -- "daily bars" --> ENGINE["Local analysis<br/>cones · bands"]
     ENGINE --> CACHE
     CACHE --> API
     API -- "REST + WebSocket" --> UI["React UI<br/>frontend/"]
@@ -291,7 +312,7 @@ flowchart LR
 ```
 
 The backend talks to the data feed through a common provider interface, streams prices to the UI
-over WebSockets, computes the volatility cones in the background and serves the analysis cache over
+over WebSockets, computes the cones and bands in the background and serves the analysis cache over
 REST. The UI is a React 18 app; its production
 build is committed in `frontend_build/`, so running the terminal never requires Node.js.
 
@@ -301,7 +322,7 @@ QuantumTerminal/
 │   ├── launcher.py          entry point: config, UI serving, command-line options
 │   ├── data_server.py       REST API + WebSocket price streams
 │   ├── providers/           MetaTrader 5, Rithmic, the simulated market (+ Tradovate proof of concept)
-│   ├── local_analysis/      volatility cones from the feed's daily bars (GBM, MJD, Bates)
+│   ├── local_analysis/      cones, bands and Replay files from the feed's daily bars
 │   ├── security.py          local-only API guard (cross-site / DNS-rebinding protection)
 │   └── tests/               pytest suite — runs without a broker
 ├── frontend/                React source of the UI (Create React App)
@@ -318,7 +339,7 @@ QuantumTerminal/
 | `--port 8600` | `MK_PORT` | HTTP port (default `8502`) |
 | `--no-browser` | `MK_NO_BROWSER=1` | Don't open the system browser |
 | | `MK_UPDATE_CHECK=0` | Don't check GitHub for a newer release (the answer is cached for 10 minutes) |
-| | `MK_LOCAL_ANALYSIS=0` | Don't compute the volatility cones locally |
+| | `MK_LOCAL_ANALYSIS=0` | Don't compute the cones and bands locally |
 | | `MK_FRONTEND_DIR` | Serve a different UI build |
 | | `MK_ALLOWED_HOSTS` | Extra host names allowed to reach the API, e.g. a LAN address (`*` disables the check) |
 | | `MK_CORS_ORIGINS` | Extra browser origins allowed to call the API (default: `http://localhost:3000`) |
@@ -350,7 +371,7 @@ Found a vulnerability? Please report it privately; see [SECURITY.md](SECURITY.md
 
 ## Roadmap
 
-- **Local quant engine, next steps** — the cones are computed locally; bands, regimes and options
+- **Local quant engine, next steps** — the cones and bands are computed locally; regimes and options
   levels are next, so every panel works without external data.
 - **More brokers** — Interactive Brokers, Alpaca and others through the provider interface
   (`providers/sim_provider.py` is a complete example).
@@ -384,6 +405,9 @@ simulated market (`--sim`) are synthetic and must never be used as market data.
 
 - **الـ volatility cones:** يومية وأسبوعية وشهرية وفصلية بثلاثة نماذج (GBM وMJD وBates)، تُحسب من الشموع
   اليومية لمصدر البيانات نفسه، دون النظر إلى المستقبل، وتتحدّث تلقائياً مع كل شمعة يومية جديدة.
+- **الـ bands الاحتمالية:** تبدأ من جديد عند افتتاح كل يوم تداول ويُحسب اتساعها من آخر 60 يوم تداول،
+  فتتحرك مع السعر، مع توقّع لـ 20 يوم تداول قادمة. وصفحة REPLAY تعيد عرض الـ cones والـ bands السابقة
+  أمام حركة السعر شمعة بشمعة.
 - **شارت حي:** من M1 إلى D1، عدة شارتات في تبويبات، أدوات رسم، قوالب، وساعة عالمية بجلسات التداول.
 - **الأوامر والصفقات:** أوامر market وlimit وstop مع SL/TP، ومعاينة فورية للمخاطرة والعائد، وسحب خطوط
   SL/TP على الشارت.
@@ -392,8 +416,8 @@ simulated market (`--sim`) are synthetic and must never be used as market data.
 - **مركز التعلم:** دليل كامل بالعربية والإنجليزية داخل المنصة.
 - **الأمان:** السيرفر محلي فقط، ولا تستطيع أي صفحة ويب تزورها إرسال أوامر عبر منصتك.
 
-لوحات Bands وOptions Quant وRegimes وFundamental تحتاج بيانات تحليل محسوبة مسبقاً لا ينتجها المستودع
-بعد، فتبقى فارغة حالياً. التفاصيل في [النسخة العربية الكاملة](README.ar.md).
+لوحات Options Quant وRegimes وFundamental وMoney Flow تحتاج بيانات تحليل محسوبة مسبقاً لا ينتجها
+المستودع بعد، فتبقى فارغة حالياً. التفاصيل في [النسخة العربية الكاملة](README.ar.md).
 
 ### المتطلبات
 
@@ -404,7 +428,7 @@ simulated market (`--sim`) are synthetic and must never be used as market data.
 | **الذاكرة** | ذاكرة بسعة 4 غيغابايت | الـ backend نفسه يستهلك نحو 150 ميغابايت |
 | **مساحة القرص** | نحو 1 غيغابايت فارغة | حزم Python تأخذ نحو 500 ميغابايت |
 | **المتصفح** | نسخة حديثة من Chrome أو Edge أو Firefox أو Safari | أو استخدم تطبيق سطح المكتب بدلاً منه |
-| **الإنترنت** | للتثبيت، ثم فقط لـ MetaTrader 5 وصفحة Money Flow والتحقق من التحديثات | السوق المحاكى يعمل دون إنترنت |
+| **الإنترنت** | للتثبيت، ثم فقط لـ MetaTrader 5 والتحقق من التحديثات | السوق المحاكى يعمل دون إنترنت |
 | **MetaTrader 5** ‏(اختياري) | منصة MT5 من وسيطك، مع تسجيل الدخول إلى حساب (الحساب التجريبي يكفي) | على Windows فقط، ومطلوبة للأسعار الحقيقية والأوامر الحية |
 | **Node.js** ‏(اختياري) | الإصدار 20 أو أحدث | فقط لتطبيق سطح المكتب أو لإعادة بناء الواجهة |
 | **Git** ‏(اختياري) | أي إصدار | أو حمّل الكود كملف ZIP |
