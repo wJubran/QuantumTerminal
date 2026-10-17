@@ -182,6 +182,8 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Requ
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
+from security import LocalOriginGuard
+
 # ── MT5 availability flag (for provider type detection, no direct calls) ──
 try:
     import MetaTrader5 as _mt5_check
@@ -775,12 +777,22 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS: only the allow-listed dev origins (the UI this server hosts is
+# same-origin). Was allow_origins=["*"], which let any website the user
+# visited call the trading endpoints on 127.0.0.1.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=server_config.cors_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+# Added after CORS so it wraps it and runs first: rejects foreign Host
+# headers (DNS rebinding) and cross-site requests / WebSocket handshakes.
+app.add_middleware(
+    LocalOriginGuard,
+    allowed_hosts=server_config.allowed_hosts,
+    allowed_origins=server_config.cors_origins,
 )
 
 # ── Wire consumer routes (auth + sync + status) ──
