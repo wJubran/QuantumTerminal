@@ -6,6 +6,8 @@ Notable changes to Quantum Terminal. The format follows
 
 ## [Unreleased]
 
+## [1.2.1] — 2026-10-17
+
 ### Fixed
 
 - Options Quant, checked against the live SPY, QQQ, GLD, SLV and USO chains:
@@ -155,6 +157,7 @@ Initial public pre-release: the Python backend and the Electron shell as source,
 build.
 
 [Unreleased]: https://github.com/wJubran/QuantumTerminal/compare/v1.1.0...HEAD
+[1.2.1]: https://github.com/wJubran/QuantumTerminal/releases/tag/v1.2.1
 [1.2.0]: https://github.com/wJubran/QuantumTerminal/releases/tag/v1.2.0
 [1.1.0]: https://github.com/wJubran/QuantumTerminal/releases/tag/v1.1.0
 [0.1.0-alpha]: https://github.com/wJubran/QuantumTerminal/releases/tag/v0.1.0-alpha

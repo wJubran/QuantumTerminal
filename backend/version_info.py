@@ -5,7 +5,7 @@ version_info.py — Quantum Terminal version endpoint.
 Exposes:
     GET /api/version[?refresh=true]
         → {
-            current:          "1.2.0",
+            current:          "1.2.1",
             latest:           "1.2.0",
             update_available: true,
             download_url:     "https://github.com/wJubran/QuantumTerminal/releases/tag/v1.2.0",
